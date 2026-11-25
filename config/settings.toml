@@ -1,0 +1,126 @@
+# TradeMate settings.
+# Environment variables override these: TRADEMATE_MODE, TRADEMATE_LOG_LEVEL.
+
+# One of: development, demo, live
+mode = "development"
+
+[app]
+name = "TradeMate"
+log_level = "INFO"
+log_dir = "logs"
+# TradeMate's own records (the order journal). Separate from MT5's files and from the broker's account history.
+data_dir = "data"
+
+# Web server used by `python app.py`. Keep host at 127.0.0.1 so the app is
+# only reachable from this computer.
+[ui]
+host = "127.0.0.1"
+port = 5000
+# The "Local" clock in the top bar. "" = this browser's own timezone. Or an IANA name such as "Asia/Manila" (env TRADEMATE_TIMEZONE overrides).
+timezone = ""
+
+# Manual DEMO execution. TradeMate only sends an order when you click BUY / SELL / CLOSE / drag SL-TP.
+# It never trades automatically. Set enabled = false to go back to read-only.
+[trading]
+enabled = true
+max_volume = 1.0          # refuse any single order bigger than this many lots
+deviation_points = 20     # allowed slippage in points
+magic = 20260401          # marks TradeMate orders inside MT5
+
+# Risk rules (Phase 5). These are the DEFAULTS: you can change every one of them in the app (Strategy page) and
+# your change is saved in data/risk_rules.json and wins over this file. There is no built-in ceiling
+# (only: a percentage must be above 0 and at most 100). The Risk Engine only decides / calculates; it never trades.
+[risk]
+default_risk_percent = 1.0           # pre-filled risk % in the proposed-trade form
+max_risk_percent = 1.0               # max risk per trade, % of equity
+max_daily_loss_percent = 3.0         # % of the start-of-day balance; reaching it locks new trades for the day
+max_total_active_risk_percent = 3.0  # % of equity: stop-loss risk of ALL open positions + the new trade
+max_positions = 3                    # max simultaneous open positions
+# "Today" for the daily loss is the BROKER's trading day (MT5 server clock, midnight server time). TradeMate measures the
+# server clock from MT5's live candles. Optional safety net for when that is not possible (market closed / MT5 disconnected):
+# your broker's timezone as an IANA name, e.g. "Europe/Athens". Leave empty to have the daily loss shown as UNKNOWN instead.
+# This is NEVER your computer's timezone. See docs/DAILY_LOSS_AND_CLOCKS.md.
+broker_timezone = ""
+
+# MT5 bridge. The TradeMateBridge Expert Advisor running inside MT5
+# writes a snapshot file; TradeMate reads it. No passwords are needed here.
+[mt5]
+# Folder containing the snapshot. Leave empty to auto-detect the MT5 shared
+# "Common/Files" folder inside your Wine prefix.
+data_dir = ""
+snapshot_file = "trademate_snapshot.json"
+# If the snapshot is older than this, MT5 or the bridge is treated as stopped.
+stale_after_seconds = 10
+# The MT5 server TradeMate may send orders to. FAIL CLOSED: if the connected account is on a different server, or the
+# server cannot be verified, every new order is refused. Case and extra spaces are ignored; nothing else is.
+# Override without editing this file: TRADEMATE_EXPECTED_SERVER=Headway-Demo
+expected_server = "Headway-Demo"
+
+# Market structure analysis (Phase 7A). Analysis and chart overlays only: it never places an order.
+[structure]
+swing_left = 3          # candles to the left a pivot must be strictly beyond
+swing_right = 3         # candles to the right a pivot must hold; a pivot is only confirmed after these exist
+break_mode = "close"    # "close": a candle must CLOSE beyond the level; "wick": a wick beyond it is enough
+equal_tolerance = 0.0   # swings this close (absolute price) are labelled EQH / EQL instead of HH / LH / HL / LL
+
+# Multi-timeframe Strategy Engine (Phase 8). Analysis and proposals only: it never sizes a position (Risk Engine) or sends an order
+# (Execution Engine). These are POLICY values, not predictions: see docs/MULTI_TIMEFRAME_STRATEGY.md.
+[strategy]
+min_rr = 1.5            # TP1 must offer at least this reward-to-risk to the structural stop, else the setup stays WATCH
+trigger_lookback = 12   # closed M5 candles in which price must have reacted at the M15 zone and M5 must have broken structure
+sl_buffer_ticks = 0     # ticks added beyond the structural stop (0 = none; uses the symbol's tick size)
+# The two selectable strategies (CHoCH Trading, Trend Continuation) read ONLY H1 and M5. The Command Centre dropdown stores the user's choice in
+# data/strategy_selection.json; default_strategy is used until a choice exists. Policy values, not tuned against data:
+default_strategy = "choch"   # one of: candle_momentum, choch, market_structure, bull_bear, trendline
+counter_min_rr = 2.0         # a CHoCH AGAINST the H1 direction needs at least this reward-to-risk (the only H1 restriction)
+signal_max_age = 12          # closed M5 candles a CHoCH / a pullback-resumption break stays actionable before it expires
+pullback_min_retrace = 0.25  # a pullback must retrace at least this fraction of the M5 impulse leg to count as a pullback
+
+# Candle Momentum + CHoCH fixed-target strategies. Distances are in PIPS (what a pip is: see [pips] below and docs/AUTOPILOT_AND_STRATEGIES.md).
+candle_trigger_pips = 10.0   # Candle Momentum: the candle must move this far from its OPEN before an entry qualifies (this is NOT the target)
+candle_target_pips = 20.0    # Candle Momentum: take-profit this many pips FURTHER from the actual fill
+candle_sl_buffer_pips = 50.0 # Candle Momentum: protective stop this many pips beyond the candle's open
+choch_target_pips = 100.0    # CHoCH Trading: take-profit this many pips from the actual entry (not a multiple of the stop distance)
+market_structure_target_pips = 25.0   # Market Structure Trading: take-profit this many pips from the actual entry
+bull_bear_target_pips = 25.0          # Bull/Bear Trading: take-profit this many pips from the actual entry
+choch_max_extension_fraction = 0.5  # CHoCH: refused as "already played out" once price moved this fraction of the target beyond the CHoCH level
+default_exec_timeframe = "M5"       # one of M1 M5 M15 M30 H1 H4; the user's choice in the Command Centre is saved separately and wins
+
+# EMA 20/50 + ATR strategy (ATR is in price units; no pip assumption). Stop = atr_sl_multiplier x ATR, target = atr_tp_multiplier x ATR.
+ema_fast_period = 20
+ema_slow_period = 50
+atr_period = 14
+atr_sl_multiplier = 2.0
+atr_tp_multiplier = 4.0
+
+# Candle Momentum engine (tick-driven; see docs/CANDLE_MOMENTUM.md). These are POLICY values, not tuned against data. None of them loosens the
+# Risk Engine, the broker checks or the pipeline's execution-eligibility checks.
+[candle_momentum]
+poll_seconds = 0.25                # how often the quote is read = the tick-monitoring cadence. Lower the EA input UpdateIntervalMs (default 1000) to ~250 as well.
+candle_verify_seconds = 5          # the forming candle is re-read from MT5 at least this often, and at every expected candle boundary
+spec_refresh_seconds = 60          # the instrument specification (pip conversion, tick value, limits) is re-read this often
+quote_max_age_seconds = 3.0        # QUOTE FRESHNESS: a quote older than this is never used to judge an entry
+signal_expiry_seconds = 15         # SIGNAL EXPIRY: a reached trigger that has not become an order within this time is EXPIRED
+max_slippage_units = 0             # EXECUTION SLIPPAGE tolerance in pips/points; 0 = not set, the [pipeline] max_entry_drift_stop_fraction protection applies
+max_entry_attempts = 1             # 1 = never retry. More: a retry only follows an order that PROVABLY was not sent (never after an unknown outcome)
+retry_delay_seconds = 2
+
+# What one pip is. Forex (4/5-digit, JPY 2/3-digit) and metals (XAU/XAG) are resolved automatically from the broker's digits and point.
+# Everything else (Boom/Crash/Volatility synthetics, indices, crypto, shares) has NO universal pip: TradeMate refuses a pip-based target
+# for it until you define it here as price units per pip. Example (check your broker's contract first!):
+[pips.overrides]
+# "Boom 100 Index" = 1.0
+
+# Autopilot (executes only setups the Risk Engine approves). poll_seconds: how often it looks at the current decision.
+[autopilot]
+poll_seconds = 5
+max_decision_age_seconds = 30   # a decision older than this is never executed
+max_runs_limit = 1000
+max_hours_limit = 720
+
+# Strategy -> Risk -> Execution pipeline (controlled mode: nothing is sent until you confirm). These are EXECUTION-ELIGIBILITY values.
+# They never loosen the Risk Engine and never change the Strategy Engine's qualification rules.
+[pipeline]
+approval_ttl_seconds = 60            # a risk approval expires after this long; a fresh proposal is then required
+max_entry_drift_stop_fraction = 0.25 # live price may differ from the strategy's reference entry by at most this fraction of the stop distance
+max_spread_stop_fraction = 0         # OPTIONAL stricter limit (spread <= this fraction of the stop). 0 = off: TradeMate judges the spread against each trade's own stop and target

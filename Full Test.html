@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Full Test · TradeMate</title>
+  <!-- Relative links: they resolve to /static/... when Flask serves this page, and to ./static/... when the file is opened directly. -->
+  <link rel="icon" href="static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body class="ft-body">
+  <a class="ft-skip" href="#ft-main">Skip to results</a>
+  <header class="ft-top">
+    <div>
+      <h1 class="ft-title">Full Test</h1>
+      <p class="ft-sub">TradeMate's automated tests, run from the app and reported honestly.</p>
+    </div>
+    <a class="ft-back" id="ft-back" href="/">Back to TradeMate</a>
+  </header>
+
+  <main id="ft-main" class="ft-main" tabindex="-1">
+    <section id="ft-file-warning" class="ft-banner ft-banner-warn" hidden aria-label="Opened from a file">
+      <strong>This page was opened as a file, so it cannot run tests.</strong>
+      <span>Browsers do not let a file page call the TradeMate server, and the test runner deliberately has no cross-origin access.
+        Start TradeMate (<code>python app.py</code>) and open it through the server:</span>
+      <span class="ft-open-row">
+        <label for="ft-port">Port</label>
+        <input id="ft-port" type="number" min="1" max="65535" value="5000" inputmode="numeric">
+        <a id="ft-open-link" class="ft-btn ft-btn-primary" href="http://127.0.0.1:5000/full-test">Open Full Test through TradeMate</a>
+      </span>
+    </section>
+
+    <section id="ft-refused" class="ft-banner ft-banner-bad" hidden role="alert"></section>
+
+    <section class="ft-banner ft-banner-info" aria-label="What these tests prove">
+      <strong>Simulated brokers only.</strong>
+      <span id="ft-disclaimer">These tests use simulated brokers. Passing them does not prove that real MT5 order execution works.</span>
+    </section>
+
+    <section class="ft-overall" aria-label="Overall result">
+      <div class="ft-overall-badge" id="ft-overall" role="status" aria-live="polite" data-status="NEVER RUN">NEVER RUN</div>
+      <div class="ft-overall-body">
+        <p id="ft-overall-note" class="ft-overall-note">No run yet. Press Run all tests.</p>
+        <dl class="ft-counts">
+          <div><dt>Passed</dt><dd id="ft-c-passed">0</dd></div>
+          <div><dt>Failed</dt><dd id="ft-c-failed">0</dd></div>
+          <div><dt>Skipped</dt><dd id="ft-c-skipped">0</dd></div>
+          <div><dt>Not run</dt><dd id="ft-c-notrun">0</dd></div>
+          <div><dt>Duration</dt><dd id="ft-c-seconds">-</dd></div>
+          <div><dt>Last run</dt><dd id="ft-c-when">never</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <div class="ft-controls" role="group" aria-label="Test controls">
+      <button type="button" id="ft-run-all" class="ft-btn ft-btn-primary">Run all tests</button>
+      <button type="button" id="ft-run-sel" class="ft-btn">Run selected</button>
+      <button type="button" id="ft-cancel" class="ft-btn" disabled>Cancel run</button>
+      <button type="button" id="ft-refresh" class="ft-btn">Refresh</button>
+      <label class="ft-check"><input type="checkbox" id="ft-select-all"> Select all groups</label>
+    </div>
+    <p id="ft-progress" class="ft-progress" aria-live="polite"></p>
+
+    <section aria-label="Test groups">
+      <h2 class="ft-h2">Test groups</h2>
+      <ul id="ft-groups" class="ft-groups"></ul>
+    </section>
+
+    <section aria-label="Tests that are not run here">
+      <h2 class="ft-h2">Real MT5 DEMO tests (not run from this page)</h2>
+      <p class="ft-muted">These can place real orders on your connected DEMO account, so they are opt-in and run only from a terminal. They are
+        <strong>NOT RUN</strong> here and are not part of the result above.</p>
+      <ul id="ft-optin" class="ft-groups"></ul>
+    </section>
+  </main>
+  <script src="static/js/fulltest.js"></script>
+</body>
+</html>

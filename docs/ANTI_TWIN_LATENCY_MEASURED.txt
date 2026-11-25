@@ -1,0 +1,27 @@
+Simulated bridge, emulated broker execution delay 50 ms per trade command, 10 reversals per setting (BUY and SELL alternating).
+All values in milliseconds: median / p90 / max.
+
+EA as shipped      (UpdateIntervalMs=1000, CommandPollMs=200)
+   price moved -> TradeMate saw it             883 /   1085 /   1115
+   seen -> original closed+confirmed          1020 /   1023 /   1225
+   closed -> opposite order sent                 2 /      3 /      6
+   opposite order (Risk gate+fill)            1173 /   1222 /   1222
+   seen -> opposite open+confirmed            2194 /   2198 /   2243
+   price moved -> opposite open (TOTAL)       3062 /   3279 /   3309
+
+recommended        (UpdateIntervalMs=250,  CommandPollMs=100)
+   price moved -> TradeMate saw it             392 /    505 /    608
+   seen -> original closed+confirmed           164 /    312 /    314
+   closed -> opposite order sent                 2 /      3 /      3
+   opposite order (Risk gate+fill)             317 /    363 /    364
+   seen -> opposite open+confirmed             506 /    631 /    676
+   price moved -> opposite open (TOTAL)        885 /    936 /   1239
+
+fastest sensible   (UpdateIntervalMs=100,  CommandPollMs=100)
+   price moved -> TradeMate saw it             517 /    570 /    615
+   seen -> original closed+confirmed           161 /    163 /    165
+   closed -> opposite order sent                 2 /      3 /      5
+   opposite order (Risk gate+fill)             313 /    314 /    315
+   seen -> opposite open+confirmed             476 /    478 /    485
+   price moved -> opposite open (TOTAL)        959 /   1043 /   1047
+

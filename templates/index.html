@@ -1,0 +1,1323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#070C18">
+  <title>TradeMate</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='completenov12-1') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/design.css', v='vision-1') }}">
+</head>
+<body>
+
+{# Trading controls: ONE component rendered in the Command Centre and in the chart side navigation. commandcentre.js keeps every copy in sync with the backend. #}
+{% macro trading_controls(scope) %}
+<div class="tc" data-tc-root data-scope="{{ scope }}">
+  <div class="tc-grid">
+    <label class="field"><span>Instrument</span><select class="select" data-tc="symbol" aria-label="Instrument"><option value="">Loading…</option></select></label>
+    <label class="field"><span>Strategy <button type="button" class="tc-info" data-tc="info" aria-label="About this strategy" aria-expanded="false" title="About this strategy">i</button></span><select class="select" data-tc="strategy" aria-label="Strategy"></select></label>
+    <label class="field"><span>Execution timeframe</span><select class="select" data-tc="timeframe" aria-label="Execution timeframe"></select></label>
+  </div>
+  <p class="note tc-tfnote" data-tc="tfnote"></p>
+  <p class="note tc-infotext" data-tc="infotext" role="note" hidden></p>
+
+  <div class="tc-card tc-c-decision" data-tc="decision-card" aria-live="polite">
+    <div class="tc-card-head"><span class="tc-card-title">Current decision</span><span class="tc-fresh" data-tc="fresh">No analysis yet</span></div>
+    <div class="tc-decision-row"><span class="tc-badge" data-tc="badge" data-decision="NONE">NONE</span><span class="tc-monitor" data-tc="monitor"></span></div>
+    <p class="note" data-tc="reason"></p>
+    <dl class="tc-setup" data-tc="setup" hidden></dl>
+  </div>
+
+  <div class="tc-card tc-cm tc-c-cm" data-tc="cm-card" hidden>
+    <div class="tc-card-head"><span class="tc-card-title">Candle Momentum &middot; live engine</span><span class="tc-chip" data-cm="chip" data-tone="idle">&mdash;</span></div>
+    <p class="note tc-cm-why" data-cm="why" role="status" aria-live="polite"></p>
+    <dl class="tc-cm-grid" data-cm="grid"></dl>
+    <p class="note tc-small">Lot size is set in the Lot size card. Prices refresh every second on this page; the engine itself reads the quote at the cadence shown in &ldquo;Engine&rdquo;.</p>
+    <details class="tc-cm-details">
+      <summary>Settings for this instrument and timeframe</summary>
+      <div class="tc-cm-form">
+        <label class="tc-cm-check"><input type="checkbox" data-cm="enabled" checked> <span>Strategy enabled</span></label>
+        <label class="field"><span>Trigger distance (pips / points)</span><input class="input" type="text" inputmode="decimal" data-cm-field="trigger_units" aria-label="Trigger distance"></label>
+        <label class="field"><span>Target distance (from the actual fill)</span><input class="input" type="text" inputmode="decimal" data-cm-field="target_units" aria-label="Target distance"></label>
+        <label class="field"><span>Protective stop beyond the candle open</span><input class="input" type="text" inputmode="decimal" data-cm-field="sl_buffer_units" aria-label="Protective stop distance"></label>
+        <label class="field"><span>Execution slippage tolerance (empty = pipeline default)</span><input class="input" type="text" inputmode="decimal" data-cm-field="max_slippage_units" aria-label="Slippage tolerance"></label>
+        <label class="field"><span>Signal expiry (seconds)</span><input class="input" type="text" inputmode="decimal" data-cm-field="signal_expiry_seconds" aria-label="Signal expiry"></label>
+        <label class="field"><span>Quote freshness limit (seconds)</span><input class="input" type="text" inputmode="decimal" data-cm-field="quote_max_age_seconds" aria-label="Quote freshness limit"></label>
+        <label class="field"><span>Entry attempts (1 = never retry)</span><input class="input" type="text" inputmode="numeric" data-cm-field="max_entry_attempts" aria-label="Entry attempts"></label>
+      </div>
+<div class="tc-cm-details">
+      <p class="tc-small"><strong>Anti-Twin reversal (optional, off by default)</strong></p>
+      <p class="note tc-small">ON or OFF, nothing else to set. As soon as the trade's price moves against it (its exit price becomes one tick worse than where the trade started), the trade is closed, the closure is confirmed, and an equal-volume opposite trade opens straight away. The new trade is watched the same way from its own entry price, so the switching can repeat (up to a fixed safety ceiling). It does not wait for a profit, a loss size, a candle close or the take-profit. A take-profit, a stop-loss or the Emergency Stop never triggers a reversal, and the Emergency Stop always wins.</p>
+      <div class="tc-cm-form">
+        <label class="tc-cm-check"><input type="checkbox" data-cm="at-enabled"> <span>Anti-Twin enabled</span></label>
+      </div>
+    </div>
+      <div class="tc-actions"><button type="button" class="btn btn-primary" data-cm="save">Save settings</button><button type="button" class="btn" data-cm="reset">Reset to defaults</button></div>
+      <p class="note" data-cm="msg" role="status" aria-live="polite"></p>
+      <p class="note tc-small">Settings cannot change while Autopilot is running. Distances are converted by TradeMate&rsquo;s instrument engine, never by a fixed forex pip.</p>
+    </details>
+    <details class="tc-cm-details"><summary>Lifecycle timeline (this candle)</summary><ol class="tc-cm-timeline" data-cm="timeline"></ol></details>
+  </div>
+
+  <div class="tc-card tc-cm tc-c-cm" data-tc="bb-card" hidden>
+    <div class="tc-card-head"><span class="tc-card-title">Bull/Bear &middot; structure-gated live engine</span><span class="tc-chip" data-bb="chip" data-tone="idle">&mdash;</span></div>
+    <p class="note tc-cm-why" data-bb="why" role="status" aria-live="polite"></p>
+    <dl class="tc-cm-grid" data-bb="grid"></dl>
+    <p class="note tc-small">A candle is traded only when its direction matches the structure established by a valid CHoCH. Before a CHoCH, or against the structure, nothing is traded. Lot size is set in the Lot size card.</p>
+    <details class="tc-cm-details">
+      <summary>Entry settings (Candle Momentum compatible)</summary>
+      <div class="tc-cm-form">
+        <label class="tc-cm-check"><input type="checkbox" data-bb="enabled" checked> <span>Strategy enabled</span></label>
+        <label class="field"><span>Trigger distance (pips / points)</span><input class="input" type="text" inputmode="decimal" data-bb-field="trigger_units" aria-label="Bull/Bear trigger distance"></label>
+        <label class="field"><span>Target distance (from the actual fill)</span><input class="input" type="text" inputmode="decimal" data-bb-field="target_units" aria-label="Bull/Bear target distance"></label>
+        <label class="field"><span>Protective stop beyond the candle open</span><input class="input" type="text" inputmode="decimal" data-bb-field="sl_buffer_units" aria-label="Bull/Bear protective stop distance"></label>
+        <label class="field"><span>Execution slippage tolerance (empty = pipeline default)</span><input class="input" type="text" inputmode="decimal" data-bb-field="max_slippage_units" aria-label="Bull/Bear slippage tolerance"></label>
+        <label class="field"><span>Signal expiry (seconds)</span><input class="input" type="text" inputmode="decimal" data-bb-field="signal_expiry_seconds" aria-label="Bull/Bear signal expiry"></label>
+        <label class="field"><span>Quote freshness limit (seconds)</span><input class="input" type="text" inputmode="decimal" data-bb-field="quote_max_age_seconds" aria-label="Bull/Bear quote freshness limit"></label>
+        <label class="field"><span>Entry attempts (1 = never retry)</span><input class="input" type="text" inputmode="numeric" data-bb-field="max_entry_attempts" aria-label="Bull/Bear entry attempts"></label>
+      </div>
+    </details>
+    <details class="tc-cm-details">
+      <summary>Anti-Twin reversal (optional, off by default)</summary>
+      <p class="note tc-small">ON or OFF, nothing else to set. As soon as the trade's price moves against it (its exit price becomes one tick worse than where the trade started), the trade is closed, the closure is confirmed, and an equal-volume opposite trade opens straight away. The new trade is watched the same way from its own entry price, so the switching can repeat (up to a fixed safety ceiling). It does not wait for a profit, a loss size, a candle close or the take-profit. A take-profit, a stop-loss or the Emergency Stop never triggers a reversal, and the Emergency Stop always wins.</p>
+      <div class="tc-cm-form">
+        <label class="tc-cm-check"><input type="checkbox" data-bb="at-enabled"> <span>Anti-Twin enabled</span></label>
+      </div>
+    </details>
+    <div class="tc-actions"><button type="button" class="btn btn-primary" data-bb="save">Save settings</button><button type="button" class="btn" data-bb="reset">Reset to defaults</button></div>
+    <p class="note" data-bb="msg" role="status" aria-live="polite"></p>
+    <p class="note tc-small">Settings cannot change while Autopilot is running. Open trades keep the Anti-Twin settings they were adopted with.</p>
+    <details class="tc-cm-details"><summary>Lifecycle timeline (this candle)</summary><ol class="tc-cm-timeline" data-bb="timeline"></ol></details>
+  </div>
+
+  <details class="tc-fold tc-c-pip">
+    <summary>Pip / point size: detected automatically (optional override)</summary>
+  <div class="tc-card">
+    <div class="tc-card-head"><span class="tc-card-title">Pip / point size</span><span class="tc-fresh" data-tc="pip-state"></span></div>
+    <div class="tc-lot-row">
+      <input class="input" type="text" inputmode="decimal" autocomplete="off" data-tc="pip" aria-label="Pip size in price units" placeholder="price units per pip">
+      <button type="button" class="btn" data-tc="pip-save">Override size</button>
+    </div>
+    <p class="note" data-tc="pip-msg" role="status" aria-live="polite"></p>
+    <ul class="tc-small tc-pip-preview" data-tc="pip-preview"></ul>
+    <button type="button" class="btn tc-linkbtn" data-tc="pip-clear" hidden>Remove my pip size</button>
+  </div>
+  </details>
+
+  <div class="tc-card tc-c-lot">
+    <div class="tc-card-head"><span class="tc-card-title">Lot size</span><span class="tc-fresh" data-tc="lot-state"></span></div>
+    <div class="tc-lot-row">
+      <input class="input" type="text" inputmode="decimal" autocomplete="off" data-tc="lot" aria-label="Lot size for new entries" aria-describedby="tc-lot-msg-{{ scope }}" placeholder="e.g. 0.10">
+      <button type="button" class="btn btn-primary" data-tc="lot-save">Set lot size</button>
+    </div>
+    <p class="note" id="tc-lot-msg-{{ scope }}" data-tc="lot-msg" role="status" aria-live="polite"></p>
+    <p class="note tc-lot-rules" data-tc="lot-rules"></p>
+  </div>
+
+  <div class="tc-card tc-c-ap">
+    <div class="tc-card-head"><span class="tc-card-title">Autopilot</span><span class="tc-chip" data-tc="ap-state" data-tone="idle">Off</span></div>
+    <fieldset class="tc-modes" data-tc="modes">
+      <legend>Stop automatically after (choose one)</legend>
+      <label class="tc-mode"><input type="radio" name="tc-mode-{{ scope }}" value="runs" data-tc="mode"> <span>Number of runs</span>
+        <input class="input tc-mode-val" type="text" inputmode="numeric" data-tc="val-runs" value="5" aria-label="Number of runs"><em>runs</em></label>
+      <label class="tc-mode"><input type="radio" name="tc-mode-{{ scope }}" value="profit" data-tc="mode"> <span>Profit target</span>
+        <input class="input tc-mode-val" type="text" inputmode="decimal" data-tc="val-profit" value="100" aria-label="Profit target"><em data-tc="currency">currency</em></label>
+      <label class="tc-mode"><input type="radio" name="tc-mode-{{ scope }}" value="hours" data-tc="mode"> <span>Elapsed hours</span>
+        <input class="input tc-mode-val" type="text" inputmode="decimal" data-tc="val-hours" value="10" aria-label="Elapsed hours"><em>hours</em></label>
+    </fieldset>
+    <div class="tc-progress" data-tc="progress" hidden>
+      <div class="tc-bar"><span data-tc="bar"></span></div>
+      <p class="note" data-tc="progress-text"></p>
+    </div>
+    <div class="tc-actions">
+      <button type="button" class="btn btn-primary" data-tc="ap-start">Start Autopilot</button>
+      <button type="button" class="btn" data-tc="ap-pause" aria-pressed="false" title="Pause: no new trades; the session is kept">Pause</button>
+      <button type="button" class="btn" data-tc="ap-stop" title="Stop: end this Autopilot session">Stop</button>
+      <button type="button" class="btn tc-emergency" data-tc="ap-emergency" title="Emergency stop: blocks every new order until you lift the lock in Settings">Emergency stop</button>
+    </div>
+    <p class="note" data-tc="ap-msg" role="status" aria-live="polite"></p>
+    <p class="note tc-small">Autopilot only executes setups your selected strategy produces and the Risk Engine approves. It needs the Watchdog running. Pause keeps the session and only suspends new trades; Stop ends the session; Emergency stop also blocks every new order from every route until you lift the lock in Settings. None of them closes open positions unless you switched that on in Settings: they keep their stop-loss and take-profit.</p>
+  </div>
+</div>
+{% endmacro %}
+
+{# The chart + trade panel are used on both the Dashboard and the Chart page. Hooks are data-role, not ids. #}
+{% macro terminal(extra_class='', scope='dash') %}
+<div class="terminal {{ extra_class }}" data-terminal>
+
+  <section class="panel chart-panel" aria-label="Chart workspace">
+    <div class="chart-toolbar" role="toolbar" aria-label="Chart controls">
+      <div class="tb-capsule" data-role="tb-capsule">
+      <div class="tb-group tb-main">
+        <span class="chart-symbol" data-role="chart-title-bar">---</span>
+        <div class="segmented tf" role="group" aria-label="Timeframe">
+          <button type="button" data-tf="M1" aria-pressed="false">M1</button>
+          <button type="button" data-tf="M5" aria-pressed="false">M5</button>
+          <button type="button" data-tf="M15" aria-pressed="false">M15</button>
+          <button type="button" data-tf="H1" aria-pressed="true">H1</button>
+          <button type="button" data-tf="H4" aria-pressed="false">H4</button>
+          <button type="button" data-tf="D1" aria-pressed="false">D1</button>
+        </div>
+        <span class="candle-countdown" data-role="candle-countdown" data-state="unavailable" role="timer" aria-live="off"
+              title="Time left before the current candle closes (broker time)">
+          <span class="cc-label">closes in</span> <span class="cc-value" data-role="candle-countdown-text">&mdash;</span>
+        </span>
+        <div class="segmented ctype" role="group" aria-label="Chart type">
+          <button type="button" data-ctype="candles" aria-pressed="true" title="Candles">Candles</button>
+          <button type="button" data-ctype="line" aria-pressed="false" title="Line">Line</button>
+        </div>
+      </div>
+      <div class="tb-group tb-tools">
+        <div class="tb-cluster" role="group" aria-label="Zoom" data-cluster="zoom">
+          <button type="button" class="tool-btn" data-zoom="out" aria-label="Zoom out" title="Zoom out">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M8.5 11h4M20 20l-4.5-4.5"/></svg></button>
+          <button type="button" class="tool-btn" data-zoom="in" aria-label="Zoom in" title="Zoom in">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M8.5 11h4M11 8.5v5M20 20l-4.5-4.5"/></svg></button>
+          <button type="button" class="tool-btn" data-zoom="reset" aria-label="Reset view" title="Reset view">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.2-5.1M5 5v4h4"/></svg></button>
+        </div>
+        <span class="tb-sep" aria-hidden="true"></span>
+        <div class="tb-cluster" role="group" aria-label="Drawing" data-cluster="drawing">
+          <button type="button" class="tool-btn" data-role="line-btn" aria-label="Draw a line: select the tool, then drag on the chart. Drag a line or either end to move it." title="Draw a line (drag on the chart; then drag the line or an end to move it)" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19L19 5"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/></svg></button>
+          <button type="button" class="tool-btn" data-role="line-del" aria-label="Delete the selected line" title="Delete the selected line (or press Delete)" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12M10 11v5M14 11v5"/></svg></button>
+        </div>
+        <span class="tb-sep" aria-hidden="true"></span>
+        <div class="tb-cluster" role="group" aria-label="Analysis overlays" data-cluster="analysis">
+          <button type="button" class="tool-btn" data-role="ma-btn" aria-label="Moving average settings" title="Moving average" aria-pressed="false" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15c3-8 6-8 9-3s6 3 9-5"/></svg></button>
+          <button type="button" class="tool-btn" data-role="structure-btn" aria-label="Show or hide market structure (HH, HL, LH, LL, BOS, CHoCH)" title="Market structure" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5-7 4 4 5-8 4 5"/></svg></button>
+          <button type="button" class="tool-btn" data-role="liquidity-btn" aria-label="Show or hide liquidity pools and sweeps (analysis only)" title="Liquidity" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h18M3 16h18"/><path d="M12 3l3 5h-6zM12 21l3-5h-6z"/></svg></button>
+          <button type="button" class="tool-btn" data-role="fvg-btn" aria-label="Show or hide fair value gaps (analysis only)" title="Fair value gaps" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18M3 19h18"/><rect x="6" y="9" width="12" height="6" rx="1" stroke-dasharray="2 2"/></svg></button>
+          <button type="button" class="tool-btn" data-role="ob-btn" aria-label="Show or hide order blocks (analysis only)" title="Order blocks" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="16" height="10" rx="1"/><path d="M4 7v10" stroke-width="3.5"/></svg></button>
+          <button type="button" class="tool-btn" data-role="overlays-btn" aria-label="Show or hide all analysis overlays (market structure, liquidity, fair value gaps)" title="All analysis overlays: hide if any are shown, otherwise show all" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4"/></svg></button>
+        </div>
+        <span class="tb-sep" aria-hidden="true"></span>
+        <div class="tb-cluster" role="group" aria-label="Layout" data-cluster="layout">
+          <button type="button" class="tool-btn" data-role="theme-btn" aria-label="Chart theme: switch light/dark" title="Chart theme">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
+          <button type="button" class="tool-btn tool-panel" data-role="panel-btn" aria-label="Show or hide the trade panel" title="Trade panel" aria-pressed="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M15 5v14"/></svg></button>
+          <button type="button" class="tool-btn" data-role="max-btn" aria-label="Maximize chart" title="Maximize chart (Esc to exit)" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9V5h4M19 9V5h-4M5 15v4h4M19 15v4h-4"/></svg></button>
+        </div>
+      </div>
+      </div>
+      <div class="ma-pop" data-role="ma-pop" hidden role="group" aria-label="Moving average settings">
+        <label class="ma-row"><input type="checkbox" data-role="ma-enabled"> <span>Show moving average</span></label>
+        <label class="ma-row"><span>Type</span><select class="select" data-role="ma-type"><option value="SMA">Simple (SMA)</option><option value="EMA">Exponential (EMA)</option><option value="WMA">Weighted (WMA)</option></select></label>
+        <label class="ma-row"><span>Period</span><input class="input" type="number" min="2" max="500" step="1" inputmode="numeric" data-role="ma-period"></label>
+        <label class="ma-row"><span>Timeframe</span><select class="select" data-role="ma-tf"><option value="chart">Same as the chart</option><option value="M1">M1</option><option value="M2">M2</option><option value="M5">M5</option><option value="M15">M15</option><option value="M30">M30</option><option value="H1">H1</option><option value="H4">H4</option><option value="D1">D1</option></select></label>
+        <p class="note ma-note" data-role="ma-msg" role="status" aria-live="polite"></p>
+        <p class="note ma-note">Display only: the moving average is never used by any strategy or filter.</p>
+      </div>
+    </div>
+
+    <div class="chart-canvas">
+      <div class="chart-stage" data-role="stage">
+        <canvas data-role="canvas" aria-label="Price chart. Drag the chart to move it in any direction. Drag the price axis on the right to stretch or compress the candles. Drag the SL and TP lines to change them at the broker."></canvas>
+        <div class="chart-hud" aria-live="off">
+          <div class="hud-top">
+            <span class="hud-sym" data-role="chart-title">---</span>
+            <span class="hud-tf" data-role="hud-tf">H1</span>
+            <span class="hud-price" data-role="hud-price">---</span>
+            <span class="hud-chg" data-role="hud-chg"></span>
+          </div>
+          <div class="hud-ohlc" data-role="hud-ohlc"></div>
+        </div>
+        <div class="mod-bar" data-role="mod-bar" data-pos="bottom" hidden>
+          <span class="mod-text" data-role="mod-text"></span>
+          <span class="mod-actions">
+            <button type="button" class="btn btn-primary btn-sm" data-role="mod-apply" title="Send this change to the broker">Apply</button>
+            <button type="button" class="btn btn-sm mod-cancel" data-role="mod-cancel" aria-label="Cancel this change" title="Cancel">&#x2715;</button>
+          </span>
+        </div>
+        <div class="chart-msg" data-role="chart-msg">
+          <strong>CHART</strong>
+          <span data-role="chart-msg-text">Waiting for market data...</span>
+        </div>
+      </div>
+      <div class="exec-status exec-compact" data-role="exec" data-compact role="status" aria-live="polite"></div>
+      <div class="chart-tradebar">   {# Task 2: the oversized BUY / SELL buttons were removed. Orders are placed with the BUY / SELL buttons in the Trade Panel (same Risk Engine check and confirmation); the lot size lives here. #}
+        <div class="tb-mid">
+          <label class="lot-box"><span>Lots</span>
+            <input class="lot-input" type="number" inputmode="decimal" step="0.01" min="0.01" value="0.01" data-role="lot" aria-label="Lot size"></label>
+          <div class="chart-posbtns" data-role="pos-add" hidden>
+            <button type="button" class="btn btn-sm" data-role="add-sl">+ SL</button>
+            <button type="button" class="btn btn-sm" data-role="add-tp">+ TP</button>
+          </div>
+        </div>
+      </div>
+      <div class="resize-y" data-role="resize-y" role="separator" aria-orientation="horizontal"
+           aria-label="Drag to change chart height. Double-click to reset." title="Drag to resize. Double-click to reset."><span></span></div>
+    </div>
+  </section>
+
+  <aside class="panel trade-panel" aria-label="Trade panel">
+    <div class="resize-x" data-role="resize-x" role="separator" aria-orientation="vertical"
+         aria-label="Drag to change chart width. Double-click to reset." title="Drag to resize. Double-click to reset."><span></span></div>
+    <div class="panel-head">
+      <h2 class="panel-title">Trade Panel</h2>
+      <span class="badge badge-demo">Demo account</span>
+    </div>
+    <nav class="sidenav-tabs" role="tablist" aria-label="Trade panel sections">
+      <button type="button" class="sidenav-tab" role="tab" data-sidenav-tab="order" aria-selected="true">Order</button>
+      <button type="button" class="sidenav-tab" role="tab" data-sidenav-tab="auto" aria-selected="false">Strategy &amp; Autopilot</button>
+    </nav>
+    <div class="panel-body stack sidenav-pane" data-sidenav-pane="auto" hidden>
+      {{ trading_controls(scope) }}
+    </div>
+    <div class="panel-body stack sidenav-pane" data-sidenav-pane="order">
+      <label class="field"><span>Symbol</span>
+        <select class="select" data-role="symbol-select"><option>---</option></select>
+      </label>
+      <div class="sl-box" data-role="sl-box" role="group" aria-label="Stop-loss calculator">
+        <div class="sl-head">
+          <div class="sl-seg" role="group" aria-label="Stop-loss input mode">
+            <button type="button" class="sl-seg-btn" data-sl-mode="price" aria-pressed="true">Stop Loss Price</button>
+            <button type="button" class="sl-seg-btn" data-sl-mode="risk" aria-pressed="false">Risk Amount</button>
+          </div>
+          <div class="sl-seg" role="group" aria-label="Direction for the calculation">
+            <button type="button" class="sl-seg-btn sl-buy" data-sl-dir="buy" aria-pressed="true">BUY</button>
+            <button type="button" class="sl-seg-btn sl-sell" data-sl-dir="sell" aria-pressed="false">SELL</button>
+          </div>
+        </div>
+        <label class="field" data-role="sl-risk-wrap" hidden><span>Risk amount: the money you accept to lose (account currency)</span>
+          <input class="input" type="number" inputmode="decimal" step="any" min="0" placeholder="e.g. 500" data-role="sl-risk">
+        </label>
+        <label class="field"><span data-role="sl-label">Stop Loss (required)</span>
+          <input class="input" type="number" inputmode="decimal" step="any" placeholder="---" data-role="sl">
+        </label>
+        <div class="sl-out" data-role="sl-out" role="status" aria-live="polite"></div>
+      </div>
+      <div class="pend-box" data-role="pend-box" role="group" aria-label="Pending order">
+        <label class="field"><span>Order type</span>
+          <select class="select" data-role="order-type" aria-label="Order type">
+            <option value="market">Market: use the BUY / SELL buttons</option>
+            <option value="buy_limit">Buy Limit (below the Ask)</option>
+            <option value="sell_limit">Sell Limit (above the Bid)</option>
+            <option value="buy_stop">Buy Stop (above the Ask)</option>
+            <option value="sell_stop">Sell Stop (below the Bid)</option>
+          </select></label>
+        <div class="pend-fields" data-role="pend-fields" hidden>
+          <label class="field"><span>Entry price (the order waits for this price)</span>
+            <input class="input" type="number" inputmode="decimal" step="any" placeholder="---" data-role="pend-price"></label>
+          <label class="field"><span>Expires (optional, your local time; empty = until cancelled)</span>
+            <input class="input" type="datetime-local" data-role="pend-exp"></label>
+          <button type="button" class="btn btn-primary" data-role="pend-place">Place pending order</button>
+        </div>
+        <p class="note" data-role="pend-note" role="status" aria-live="polite"></p>
+      </div>
+      <label class="field"><span>Take Profit (optional)</span>
+        <input class="input" type="number" inputmode="decimal" step="any" placeholder="---" data-role="tp">
+      </label>
+      <div class="side-buttons">
+        <button type="button" class="btn btn-buy" data-role="panel-buy" disabled>BUY</button>
+        <button type="button" class="btn btn-sell" data-role="panel-sell" disabled>SELL</button>
+      </div>
+      <div class="exec-status" data-role="exec" role="status" aria-live="polite">
+        <div class="exec-line exec-idle">No orders sent yet.</div>
+      </div>
+      <p class="note">Orders go to your MT5 DEMO account. A position only appears after the broker confirms it.</p>
+    </div>
+  </aside>
+
+</div>
+{% endmacro %}
+
+{# Open trades table, shared by the Dashboard and the Trades page. #}
+{% macro open_trades() %}
+<section class="panel" aria-label="Open trades">
+  <div class="panel-head"><h2 class="panel-title">Open Trades</h2>
+    <span class="open-pl" data-role="open-pl">---</span></div>
+  <div class="table-scroll">
+    <table class="data">
+      <thead><tr>
+        <th scope="col">Symbol</th><th scope="col">Type</th><th scope="col" class="num">Volume</th>
+        <th scope="col" class="num">Entry</th><th scope="col" class="num">SL</th><th scope="col" class="num">TP</th>
+        <th scope="col" class="num">P/L</th><th scope="col" class="num">Manage</th>
+      </tr></thead>
+      <tbody data-role="trades-body"><tr class="empty-row"><td colspan="8">No active trades</td></tr></tbody>
+    </table>
+  </div>
+  <h3 class="pend-title">Pending orders <span class="pend-sub">(waiting orders: not open positions, no exposure until they fill)</span></h3>
+  <div class="table-scroll">
+    <table class="data" data-role="pending-table">
+      <thead><tr>
+        <th scope="col">Symbol</th><th scope="col">Type</th><th scope="col" class="num">Volume</th>
+        <th scope="col" class="num">Entry</th><th scope="col" class="num">SL</th><th scope="col" class="num">TP</th>
+        <th scope="col">Expires</th><th scope="col" class="num">Ticket</th><th scope="col" class="num">Manage</th>
+      </tr></thead>
+      <tbody data-role="pending-body"><tr class="empty-row"><td colspan="9">No pending orders</td></tr></tbody>
+    </table>
+  </div>
+  <p class="note pad-note" data-role="pending-note"></p>
+  <div class="exec-status exec-pad" data-role="exec" role="status" aria-live="polite">
+    <div class="exec-line exec-idle">No orders sent yet.</div>
+  </div>
+</section>
+{% endmacro %}
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <button id="nav-toggle" class="icon-btn nav-toggle" type="button"
+          aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+
+  <a class="brand" href="#dashboard" aria-label="TradeMate dashboard">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32"><path d="M7 9h18M16 9v16" class="mark-stroke"/><rect x="21" y="19" width="4" height="6" class="mark-accent"/></svg>
+    </span>
+    <span class="brand-text">
+      <span class="brand-name">TRADEMATE</span>
+      <span class="brand-sub">by Helixa Technologies</span>
+    </span>
+  </a>
+
+  <div class="topbar-status" aria-label="Status">
+    <span id="mt5-pill" class="pill" title="Connection to the MT5 terminal.">
+      <span class="dot" aria-hidden="true"></span><span id="mt5-pill-text">MT5: CHECKING</span>
+    </span>
+    <span id="acct-pill" class="pill" title="Broker account reported by MT5.">Account: ---</span>
+    <span class="pill pill-mode mode-{{ mode }}">Mode: <strong>{{ mode }}</strong></span>
+    <span class="pill pill-clock" id="clock-local" data-clock="local" data-clock-zone-config="{{ ui_timezone }}" role="timer" aria-live="off">
+      <span class="clock-name">LOCAL</span><span class="clock-time" data-clock-time>--:--:--</span><span class="clock-zone" data-clock-zone></span>
+    </span>
+    <span class="pill pill-clock" id="clock-eastern" data-clock="eastern" role="timer" aria-live="off">
+      <span class="clock-name">NEW YORK</span><span class="clock-time" data-clock-time>--:--:--</span><span class="clock-zone" data-clock-zone></span>
+    </span>
+  </div>
+
+  <div class="topbar-actions">
+    <button id="theme-toggle" class="icon-btn" type="button" role="switch" aria-checked="false" aria-label="Light theme" title="Dark theme (click for light)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+    </button>
+    <a class="icon-btn" href="#settings" data-view="settings" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+    </a>
+    <div class="account" title="User placeholder">
+      <span class="avatar" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+      </span>
+      <span class="account-text">
+        <span class="account-name">Guest</span>
+        <span class="account-sub">Not signed in</span>
+      </span>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <div id="scrim" class="scrim" hidden></div>
+
+  <nav id="sidebar" class="sidebar" aria-label="Main navigation">
+    <div class="sidebar-head">
+      <span class="sidebar-title">Navigation</span>
+      <button id="nav-close" class="icon-btn" type="button" aria-label="Close navigation">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <ul class="nav-list">
+      <li><a class="nav-link" href="#dashboard" data-view="dashboard">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</a></li>
+      <li><a class="nav-link" href="#chart" data-view="chart">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v3M7 17v3M17 3v4M17 15v5"/><rect x="5" y="7" width="4" height="10"/><rect x="15" y="7" width="4" height="8"/></svg>Chart</a></li>
+      <li><a class="nav-link" href="#analysis" data-view="analysis">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18"/><path d="M5 20V11M10 20V6M15 20v-7M20 20V9"/><path d="M4 8l5-4 5 5 6-5"/></svg>Analysis</a></li>
+      <li><a class="nav-link" href="#strategy" data-view="strategy">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H14a3 3 0 0 1 0 6h-4a3 3 0 0 0 0 6h4.5"/></svg>Strategy</a></li>
+      <li><a class="nav-link" href="#strategylab" data-view="strategylab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M8 15h8"/></svg>Command Centre</a></li>
+      <li><a class="nav-link" href="#accountcenter" data-view="accountcenter">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Account Centre</a></li>
+      <li><a class="nav-link" href="#trades" data-view="trades">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4L3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg>Trades</a></li>
+      <li><a class="nav-link" href="#history" data-view="history">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h4"/><path d="M12 8v4l-3 2"/></svg>History</a></li>
+      <li><a class="nav-link" href="#journal" data-view="journal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M5 18a2 2 0 0 1 2-2h12"/></svg>Journal</a></li>
+      <li><a class="nav-link" href="#backtest" data-view="backtest">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h4"/><path d="M12 7v5l3 2"/></svg>Backtest</a></li>
+      <li><a class="nav-link" href="#settings" data-view="settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Settings</a></li>
+    </ul>
+    {% if dev_tools %}
+    <div class="nav-dev">
+      <span class="nav-dev-label">Developer</span>
+      <a class="nav-link" href="/full-test" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 15h9"/></svg>Full Test</a>
+    </div>
+    {% endif %}
+    <div class="sidebar-foot">v{{ version }}</div>
+  </nav>
+
+  <main id="main" class="main" tabindex="-1">
+
+    <!-- ===== Dashboard ===== -->
+    <section id="view-dashboard" class="view" data-title="Dashboard" hidden>
+      <div class="page-head page-head-row">
+        <div><h1 class="page-title">Dashboard</h1>
+          <p class="page-sub">Your account, risk and strategies at a glance. Every figure is read from MT5 and TradeMate's own records; nothing is estimated.</p></div>
+        <a class="btn btn-primary btn-sm page-cta" href="#chart" data-view="chart" id="dash-open-chart">Open chart</a>
+      </div>
+
+      <div class="kpi-grid kpi-primary" aria-label="Account overview">
+        <section class="kpi kpi-hero"><h2 class="kpi-label">Equity</h2><div class="kpi-value" id="acct-equity">---</div><div class="kpi-sub">Balance <span id="acct-balance">---</span></div></section>
+        <section class="kpi"><h2 class="kpi-label">Floating P/L</h2><div class="kpi-value" id="acct-profit">---</div><div class="kpi-sub">open positions, live</div></section>
+        <section class="kpi"><h2 class="kpi-label">Free margin</h2><div class="kpi-value" id="acct-free-margin">---</div><div class="kpi-sub">available to trade</div></section>
+        <section class="kpi"><h2 class="kpi-label">Open positions</h2><div class="kpi-value" id="dash-positions">---</div><div class="kpi-sub" id="dash-positions-sub">open now</div></section>
+        <section class="kpi"><h2 class="kpi-label">Account</h2><div class="kpi-value" id="dash-currency">---</div><div class="kpi-sub" id="dash-env">currency and environment</div></section>
+      </div>
+
+      <section class="panel tm" id="target-monitor" aria-label="Target Monitor" data-kind="loading" data-stale="false">
+        <div class="panel-head"><h2 class="panel-title">Target Monitor <span class="panel-sub">Autopilot profit target, read only</span></h2>
+          <span class="tc-chip" data-tm="status" data-tone="idle">LOADING</span></div>
+        <div class="panel-body tm-body">
+          <div class="tm-gauge" data-tm="meter" role="meter" aria-label="Progress to the Autopilot profit target" aria-valuemin="0" aria-valuemax="100">
+            <div data-tm="gauge"></div>
+            <div class="tm-readout" aria-live="polite">
+              <div class="tm-label" data-tm="label">TARGET MONITOR</div>
+              <div class="tm-value" data-tm="value">---</div>
+              <div class="tm-target" data-tm="target">TARGET: ---</div>
+            </div>
+          </div>
+          <div class="tm-side">
+            <div class="tm-headline" data-tm="headline">Reading the Autopilot session...</div>
+            <div class="tm-remaining" data-tm="remaining"></div>
+            <p class="note" data-tm="detail" role="status"></p>
+            <a class="btn btn-sm" href="#chart" data-view="chart">Autopilot controls</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="trading-status" aria-label="Trading status">
+        <div class="panel-head"><h2 class="panel-title">Trading status <span class="panel-sub">what TradeMate is set to do right now</span></h2><span class="tc-chip" id="dash-status-chip" data-tone="idle">Checking</span></div>
+        <div class="panel-body">
+          <dl class="kv kv-rows ts-grid">
+            <div><dt>MT5 connection</dt><dd id="mt5-state">CHECKING</dd></div>
+            <div><dt>Trading mode</dt><dd id="dash-mode">---</dd></div>
+            <div><dt>Autopilot</dt><dd id="dash-autopilot">---</dd></div>
+            <div><dt>Watchdog</dt><dd id="dash-watchdog">---</dd></div>
+            <div><dt>Selected strategy</dt><dd id="dash-strategy">NOT ACTIVE</dd></div>
+            <div><dt>Instrument</dt><dd id="dash-instrument">---</dd></div>
+            <div><dt>Execution timeframe</dt><dd id="dash-timeframe">---</dd></div>
+            <div><dt>Rapid Fire</dt><dd id="dash-rf">---</dd></div>
+            <div><dt>Risk Engine</dt><dd id="dash-risk">---</dd></div>
+            <div><dt>Execution</dt><dd id="exec-state">---</dd></div>
+            <div class="ts-wide"><dt>Recent execution</dt><dd id="dash-lastexec">---</dd></div>
+          </dl>
+          <p class="note" id="dash-note" role="status"></p>
+        </div>
+      </section>
+
+      <div class="kpi-grid kpi-secondary" aria-label="Results and margin">
+        <section class="kpi"><h2 class="kpi-label">Today</h2><div class="kpi-value" id="dash-today">---</div><div class="kpi-sub" id="dash-today-sub">closed + floating, local day</div></section>
+        <section class="kpi"><h2 class="kpi-label">Realised P/L</h2><div class="kpi-value" id="dash-realised">---</div><div class="kpi-sub" id="dash-realised-sub">closed trades</div></section>
+        <section class="kpi"><h2 class="kpi-label">Used margin</h2><div class="kpi-value" id="acct-margin">---</div><div class="kpi-sub">held by open positions</div></section>
+        <section class="kpi"><h2 class="kpi-label">Closed trades</h2><div class="kpi-value" id="dash-closed">---</div><div class="kpi-sub" id="dash-closed-sub">window</div></section>
+        <section class="kpi"><h2 class="kpi-label">Win rate</h2><div class="kpi-value" id="dash-winrate">---</div><div class="kpi-sub" id="dash-winrate-sub">of closed trades</div></section>
+      </div>
+
+      <section class="panel" id="perf-overview" aria-label="Performance overview">
+        <div class="panel-head"><h2 class="panel-title">Performance overview <span class="panel-sub">closed trades, last 30 days of MT5 history</span></h2></div>
+        <div class="panel-body perf-grid">
+          <div class="perf-card"><h3 class="sub-title">Profit / loss per trade <span class="panel-sub">oldest to newest, last 30</span></h3>
+            <div class="perf-bars" id="perf-bars" role="img" aria-label="Profit and loss of the most recent closed trades"><p class="note">No closed trades yet.</p></div></div>
+          <div class="perf-card"><h3 class="sub-title">Win / loss distribution</h3>
+            <div class="perf-dist" id="perf-dist" role="img" aria-label="Share of winning, losing and break-even trades"></div>
+            <dl class="kv kv-rows" id="perf-dist-text"><div><dt>Won</dt><dd id="perf-won">---</dd></div><div><dt>Lost</dt><dd id="perf-lost">---</dd></div><div><dt>Break-even</dt><dd id="perf-even">---</dd></div><div><dt>Trades counted</dt><dd id="perf-count">---</dd></div></dl></div>
+          <div class="perf-card"><h3 class="sub-title">Recent activity</h3>
+            <ol class="perf-recent" id="perf-recent"><li class="note">No closed trades yet.</li></ol></div>
+        </div>
+      </section>
+
+      <div class="dash-split">
+        <section class="card card-market">
+          <h2 class="card-label">Current Market</h2>
+          <div class="mkt-quote" aria-live="off">
+            <button type="button" id="mkt-up" class="mkt-arrow" aria-label="Previous symbol" title="Previous symbol">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+            <div class="mkt-symbol" id="mkt-symbol">---</div>
+            <div class="mkt-price" id="mkt-price">---</div>
+            <div class="mkt-sub"><span id="mkt-ask">---</span> ask &middot; <span id="mkt-spread">---</span></div>
+            <button type="button" id="mkt-down" class="mkt-arrow" aria-label="Next symbol" title="Next symbol">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          </div>
+          <div class="mkt-watch">
+            <div class="mkt-chips" id="watch-chips" aria-label="Watchlist"></div>
+            <div class="sym-search">
+              <input class="input select-sm" id="sym-search" type="search" autocomplete="off" maxlength="40"
+                     placeholder="Search broker symbols (gold, US30, oil...)" aria-label="Search all broker symbols">
+              <div class="sym-results" id="sym-results" hidden></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {{ open_trades() }}
+
+      <section class="panel" id="panel-sessions" aria-label="Trading session and instruments">
+        <div class="panel-head"><h2 class="panel-title">Trading session</h2><span class="lab-state" id="sess-current" data-state="loading">Checking</span></div>
+        <div class="panel-body stack">
+          <p class="note" id="sess-selected" role="status"></p>
+          <div class="table-scroll"><table class="data data-narrow" aria-label="Trading sessions"><thead><tr><th>Session</th><th>Status</th><th>Opens (UTC)</th><th>Closes (UTC)</th><th>Typical pairs</th></tr></thead><tbody id="sess-body"></tbody></table></div>
+          <h3 class="sub-title">Instruments</h3>
+          <div id="sess-instruments" class="tc-small"></div>
+          <p class="note tc-small" id="sess-note"></p>
+        </div>
+      </section>
+
+      <div class="grid-2">
+        <section class="panel" aria-label="Broker connection">
+          <div class="panel-head"><h2 class="panel-title">Broker Connection</h2><span class="badge badge-ok">Demo</span></div>
+          <div class="panel-body stack">
+            <dl class="kv kv-rows">
+              <div><dt>Broker</dt><dd id="br-broker">---</dd></div>
+              <div><dt>Server</dt><dd id="br-server">---</dd></div>
+              <div><dt>Environment</dt><dd id="br-env">---</dd></div>
+              <div><dt>Connection</dt><dd id="br-state">---</dd></div>
+              <div><dt>Account</dt><dd id="br-login">---</dd></div>
+              <div><dt>Currency</dt><dd id="br-currency">---</dd></div>
+              <div><dt>Margin</dt><dd id="br-margin">---</dd></div>
+              <div><dt>Last update</dt><dd id="br-age">---</dd></div>
+            </dl>
+            <p id="br-message" class="note" role="status">Checking the MT5 connection...</p>
+          </div>
+        </section>
+        <section class="panel" aria-label="Live market">
+          <div class="panel-head"><h2 class="panel-title">Live Market</h2></div>
+          <div class="table-scroll">
+            <table class="data data-narrow">
+              <thead><tr>
+                <th scope="col">Symbol</th><th scope="col" class="num">Bid</th>
+                <th scope="col" class="num">Ask</th><th scope="col" class="num">Spread</th>
+              </tr></thead>
+              <tbody id="market-body"><tr class="empty-row"><td colspan="4">No market data</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ===== Chart ===== -->
+    <section id="view-chart" class="view view-fill" data-title="Chart" hidden>
+      <div class="page-head sr-only"><h1 class="page-title">Chart</h1></div>
+      {{ terminal('terminal-tall', 'chart') }}
+    </section>
+
+    <!-- ===== Analysis ===== -->
+    <section id="view-analysis" class="view" data-title="Analysis" hidden>
+      <div class="page-head"><h1 class="page-title">Analysis</h1>
+        <p class="page-sub">A plain-language reading of what TradeMate's engines found on the chart. Open &ldquo;Technical details&rdquo; for the full detail. This page never places orders and never gives trade signals.</p></div>
+      <section class="panel an-controls" aria-label="Instrument and timeframe">
+        <label class="field an-field"><span>Symbol</span><select class="select" id="an-symbol" aria-label="Analysis symbol"></select></label>
+        <div class="field an-field"><span id="an-tf-label">Timeframe</span>
+          <div class="an-tfs" id="an-tfs" role="group" aria-labelledby="an-tf-label"></div></div>
+        <div class="an-actions">
+          <button type="button" class="btn btn-sm" id="an-refresh">Refresh</button>
+          <label class="an-auto"><input type="checkbox" id="an-auto" checked> Auto-refresh</label>
+        </div>
+      </section>
+      <section class="an-status" id="an-status" data-code="ANALYSING" role="status" aria-live="polite">
+        <span class="an-badge" id="an-status-code">ANALYSING</span>
+        <div><p class="an-status-reason" id="an-status-reason">Waiting for the analysis...</p>
+          <p class="an-status-meaning" id="an-status-meaning"></p></div>
+      </section>
+      <!-- Task 2: the plain-language summary. The five sections are filled from payload.summary (trademate/analysis_summary.py). -->
+      <div class="an-summary" id="an-summary">
+        <section class="panel an-sum" aria-labelledby="an-h-s-dir"><div class="panel-head"><h2 class="panel-title" id="an-h-s-dir">1. Structure direction &amp; quality</h2></div>
+          <div class="panel-body stack" id="an-sum-direction"></div></section>
+        <section class="panel an-sum" aria-labelledby="an-h-s-liq"><div class="panel-head"><h2 class="panel-title" id="an-h-s-liq">2. Liquidity</h2></div>
+          <div class="panel-body stack" id="an-sum-liquidity"></div></section>
+        <section class="panel an-sum" aria-labelledby="an-h-s-fvg"><div class="panel-head"><h2 class="panel-title" id="an-h-s-fvg">3. Fair value gaps</h2></div>
+          <div class="panel-body stack" id="an-sum-fvg"></div></section>
+        <section class="panel an-sum" aria-labelledby="an-h-s-ob"><div class="panel-head"><h2 class="panel-title" id="an-h-s-ob">4. Order blocks</h2></div>
+          <div class="panel-body stack" id="an-sum-ob"></div></section>
+        <section class="panel an-sum an-sum-overall" aria-labelledby="an-h-s-all"><div class="panel-head"><h2 class="panel-title" id="an-h-s-all">5. Overall interpretation</h2></div>
+          <div class="panel-body stack" id="an-sum-overall"></div></section>
+      </div>
+      <details class="an-tech" id="an-tech">
+        <summary>Technical details <span class="an-tech-hint">(instrument and data, swings, every event, every zone, modules, caveats)</span></summary>
+      <div class="an-grid">
+        <section class="panel" aria-labelledby="an-h-context"><div class="panel-head"><h2 class="panel-title" id="an-h-context">Instrument and data</h2></div>
+          <div class="panel-body stack" id="an-context"></div></section>
+        <section class="panel" aria-labelledby="an-h-structure"><div class="panel-head"><h2 class="panel-title" id="an-h-structure">Market structure</h2></div>
+          <div class="panel-body stack" id="an-structure"></div></section>
+        <section class="panel an-wide" aria-labelledby="an-h-events"><div class="panel-head"><h2 class="panel-title" id="an-h-events">Structural events and why they appear</h2></div>
+          <div class="panel-body stack" id="an-events"></div></section>
+        <section class="panel an-wide" aria-labelledby="an-h-liq"><div class="panel-head"><h2 class="panel-title" id="an-h-liq">Liquidity</h2></div>
+          <div class="panel-body stack" id="an-liquidity"></div></section>
+        <section class="panel an-wide" aria-labelledby="an-h-fvg"><div class="panel-head"><h2 class="panel-title" id="an-h-fvg">Fair value gaps</h2></div>
+          <div class="panel-body stack" id="an-fvg"></div></section>
+        <section class="panel an-wide" aria-labelledby="an-h-ob"><div class="panel-head"><h2 class="panel-title" id="an-h-ob">Order blocks</h2></div>
+          <div class="panel-body stack" id="an-ob"></div></section>
+        <section class="panel an-wide" aria-labelledby="an-h-interp"><div class="panel-head"><h2 class="panel-title" id="an-h-interp">Interpretation</h2></div>
+          <div class="panel-body stack" id="an-interp"></div></section>
+        <section class="panel" aria-labelledby="an-h-modules"><div class="panel-head"><h2 class="panel-title" id="an-h-modules">Analysis modules</h2></div>
+          <div class="panel-body stack" id="an-modules"></div></section>
+        <section class="panel" aria-labelledby="an-h-caveats"><div class="panel-head"><h2 class="panel-title" id="an-h-caveats">Read this first</h2></div>
+          <div class="panel-body stack" id="an-caveats"></div></section>
+      </div>
+      </details>
+    </section>
+
+    <!-- ===== Strategy ===== -->
+    <section id="view-strategy" class="view" data-title="Strategy" hidden>
+      <div class="page-head"><h1 class="page-title">Strategy</h1></div>
+      <section class="panel" id="mtf-panel">
+        <div class="panel-head"><h2 class="panel-title">Multi-timeframe analysis <span class="panel-sub">M5, M15, H1, H4: proposes a setup, sends no order, sizes nothing</span></h2></div>
+        <div class="panel-body stack">
+          <div class="an-controls">
+            <label class="field"><span>Symbol</span><select class="select" id="mtf-symbol" aria-label="Symbol for multi-timeframe analysis"></select></label>
+            <button type="button" class="btn btn-primary" id="mtf-run">Analyse</button>
+          </div>
+          <p class="note" id="mtf-note">Press Analyse. M5, M15, H1 and H4 are fetched as native broker timeframes. Decisions use closed candles only. Multi-timeframe agreement is context, not proof of profit.</p>
+          <div id="mtf-out" aria-live="polite"></div>
+        </div>
+      </section>
+      <section class="panel" id="strategy-hub" aria-label="Strategies">
+        <div class="panel-head">
+          <h2 class="panel-title">Strategies <span class="panel-sub">six independent strategies, each with its own configuration</span></h2>
+          <span class="tc-chip" id="hub-chip" data-tone="idle">Loading</span>
+        </div>
+        <div class="panel-body stack">
+          <div class="strat-grid" id="strat-grid" aria-live="polite"><p class="note">Loading strategies...</p></div>
+          <p class="note" id="hub-msg" role="status" aria-live="polite"></p>
+          <p class="note tc-small">The five catalogue strategies run through the Command Centre (analysis, Watchdog, Autopilot, Risk Engine). RAPID FIRE is a separate engine with its own start / stop and its own panel below; it still passes every order through the central Risk Engine. Performance is shown only where TradeMate records it per strategy.</p>
+        </div>
+      </section>
+      {% include "_rapid_fire_panel.html" ignore missing %}
+          <section class="panel" aria-label="Risk engine state and limits" id="risk-state">
+        <div class="panel-head"><h2 class="panel-title">Risk Engine <span class="panel-sub">limits and current state</span></h2></div>
+        <div class="panel-body stack">
+          <div class="grid-2">
+            <dl class="kv kv-rows" aria-label="Account and current state">
+              <div><dt>Equity</dt><dd data-rs="equity">---</dd></div>
+              <div><dt>Balance</dt><dd data-rs="balance">---</dd></div>
+              <div><dt>Today's Loss</dt><dd data-rs="todays_loss">---</dd></div>
+              <div><dt>Remaining Daily Loss</dt><dd data-rs="daily_remaining">---</dd></div>
+              <div><dt>Open Positions</dt><dd data-rs="open_positions">---</dd></div>
+              <div><dt>Current Active Risk <span class="panel-sub">at SL</span></dt><dd data-rs="active_risk">---</dd></div>
+              <div><dt>Floating P&amp;L <span class="panel-sub">not the same as risk</span></dt><dd data-rs="floating_pl">---</dd></div>
+              <div><dt>Daily status</dt><dd data-rs="daily_status">---</dd></div>
+            </dl>
+            <div class="stack">
+              <div class="form-grid">
+                <label class="field"><span>Max Risk / Trade (%)</span>
+                  <input class="input" id="rule-trade" type="number" inputmode="decimal" step="any" value="{{ '%g' % risk.max_risk_percent }}"></label>
+                <label class="field"><span>Max Daily Loss (%)</span>
+                  <input class="input" id="rule-daily" type="number" inputmode="decimal" step="any" value="{{ '%g' % risk.max_daily_loss_percent }}"></label>
+                <label class="field"><span>Max Active Risk (%)</span>
+                  <input class="input" id="rule-active" type="number" inputmode="decimal" step="any" value="{{ '%g' % risk.max_total_active_risk_percent }}"></label>
+                <label class="field"><span>Max Simultaneous Positions</span>
+                  <input class="input" id="rule-positions" type="number" inputmode="numeric" step="1" value="{{ risk.max_positions }}"></label>
+              </div>
+              <div><button type="button" class="btn" id="rules-save">SAVE LIMITS</button></div>
+              <p class="note">Any value above 0 and up to 100 % is allowed. Saved on this computer only; nothing is sent to MT5.</p>
+            </div>
+          </div>
+          <dl class="kv kv-rows" id="risk-positions" aria-label="Open positions from MT5"></dl>
+          <p class="note" id="risk-state-note"></p>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Proposed trade and risk decision" id="risk-calc">
+        <div class="panel-head"><h2 class="panel-title">Proposed Trade <span class="panel-sub">manual what-if: decides only, sends no order</span></h2></div>
+        <div class="panel-body stack">
+          <div class="form-grid">
+            <label class="field"><span>Symbol</span>
+              <select class="select" id="risk-symbol"><option value="">---</option></select></label>
+            <label class="field"><span>Direction</span>
+              <select class="select" id="risk-direction"><option value="buy">BUY</option><option value="sell">SELL</option></select></label>
+            <label class="field"><span>Entry</span>
+              <input class="input" id="risk-entry" type="number" inputmode="decimal" step="any" placeholder="---"></label>
+            <label class="field"><span>SL (from strategy)</span>
+              <input class="input" id="risk-sl" type="number" inputmode="decimal" step="any" placeholder="---"></label>
+            <label class="field"><span>TP (from strategy)</span>
+              <input class="input" id="risk-tp" type="number" inputmode="decimal" step="any" placeholder="---"></label>
+            <label class="field"><span>Strategy risk (% of equity)</span>
+              <input class="input" id="risk-pct" type="number" inputmode="decimal" step="any" value="{{ '%g' % risk.default_risk_percent }}"></label>
+          </div>
+          <div class="side-buttons">
+            <button type="button" class="btn" id="risk-live">USE LIVE PRICE</button>
+            <button type="button" class="btn btn-primary" id="risk-calc-btn">EVALUATE</button>
+          </div>
+          <div class="note" id="risk-banner" role="status"><strong>Not evaluated yet.</strong> Phase 5 only decides: it never sends an order.</div>
+          <dl class="kv kv-rows" id="risk-out" aria-live="polite">
+            <div><dt>Requested Risk</dt><dd data-risk="requested">---</dd></div>
+            <div><dt>Ideal Volume <span class="panel-sub">exact</span></dt><dd data-risk="ideal">---</dd></div>
+            <div><dt>Broker-valid Volume <span class="panel-sub">rounded down</span></dt><dd data-risk="broker">---</dd></div>
+            <div><dt>Actual Risk <span class="panel-sub">at that volume</span></dt><dd data-risk="risk_amount">---</dd></div>
+            <div><dt>Final Approved Volume</dt><dd data-risk="normalized_volume">---</dd></div>
+            <div><dt>Effective Max Risk</dt><dd data-risk="effective">---</dd></div>
+            <div><dt>Final Decision</dt><dd data-risk="decision">---</dd></div>
+            <div><dt>Reason(s)</dt><dd data-risk="rejection_reason">---</dd></div>
+          </dl>
+          <dl class="kv kv-rows" id="risk-checks" aria-label="Risk checks"></dl>
+          <p class="note">REJECTED = no order is sent. ACCEPTED = passed risk validation. No order is sent from this card either way: orders are placed only from the Trade Panel on the Chart page, after its own Risk Engine check and confirmation. The volume is always calculated by the Risk Engine from your risk %, never typed. Entry, SL and TP are typed here by hand: the multi-timeframe panel above proposes levels but does not fill this form.</p>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===== Command Centre ===== -->
+    <section id="view-strategylab" class="view lab lab-page cc" data-title="Command Centre" hidden>
+      <header class="page-head lab-head cc-head">
+        <div class="lab-title-wrap">
+          <p class="lab-kicker">TradeMate</p>
+          <h1 class="page-title">Command Centre</h1>
+        </div>
+        <div class="cc-chips" role="group" aria-label="System status">
+          <span class="cc-chip" id="cc-chip-conn" data-tone="idle"><span class="cc-dot" aria-hidden="true"></span><span id="cc-chip-conn-text">Checking MT5</span></span>
+          <span class="cc-chip" id="cc-chip-account" data-tone="idle" hidden><span class="cc-dot" aria-hidden="true"></span><span id="cc-chip-account-text"></span></span>
+          <span class="cc-chip" id="cc-chip-strategy" data-tone="idle"><span class="cc-dot" aria-hidden="true"></span><span id="cc-chip-strategy-text">Strategy: loading</span></span>
+        </div>
+      </header>
+
+      <section class="panel cc-trading cc-bar-panel" aria-label="Autopilot command bar">
+        <div class="panel-head"><h2 class="panel-title">Autopilot</h2></div>
+        <div class="panel-body">{{ trading_controls('cc') }}</div>
+      </section>
+
+      <section class="panel lab-welcome" aria-label="Welcome">
+        <div class="panel-body lab-welcome-body">
+          <p class="lab-greeting" id="lab-greeting" aria-live="polite">Welcome to Command Centre.</p>
+          <p class="lab-intro">Take a moment to review the market. Choose an instrument below whenever you're ready.</p>
+          <div class="sr-only" aria-live="polite">
+            <span id="lab-summary-state">Awaiting setup</span>
+            <span id="lab-summary-market">Not selected</span>
+            <span id="lab-summary-decision">Standby</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel lab-toolbar cc-toolbar" aria-label="Market and analysis controls">
+        <div class="panel-body lab-toolbar-body">
+          <div class="lab-field cc-field-market">
+            <label for="lab-market" class="lab-label">1 · Market</label>
+            <div class="lab-market-picker">
+              <input id="lab-market" class="input" type="search" list="lab-market-options" placeholder="Search broker instruments…" autocomplete="off" disabled aria-describedby="lab-market-state">
+              <button type="button" class="btn lab-market-dropdown" id="lab-market-dropdown" aria-label="Show instruments saved in MT5 Market Watch" aria-expanded="false" aria-controls="lab-market-saved" disabled>
+                <span>Saved in MT5</span><span class="lab-market-chevron" aria-hidden="true">▾</span>
+              </button>
+              <div class="lab-market-saved" id="lab-market-saved" role="listbox" aria-label="Instruments saved in MT5 Market Watch" hidden></div>
+            </div>
+            <datalist id="lab-market-options"></datalist>
+            <span id="lab-market-state" class="lab-state" data-cap="selector" data-state="loading">Checking</span>
+          </div>
+          <div class="lab-field cc-field-strategy">
+            <label for="cc-strategy" class="lab-label">2 · Strategy</label>
+            <div class="cc-select-wrap">
+              <select id="cc-strategy" class="select cc-select" disabled aria-describedby="cc-strategy-desc"><option value="">Loading strategies…</option></select>
+            </div>
+          </div>
+          <div class="lab-field lab-field-action">
+            <label class="lab-label" for="lab-analyse">3 · Analyse</label>
+            <button type="button" class="btn btn-primary lab-analyse" id="lab-analyse" disabled aria-describedby="lab-analyse-state"><span class="cc-spin" aria-hidden="true"></span><span id="lab-analyse-text">ANALYSE MARKET</span></button>
+            <span id="lab-analyse-state" class="lab-state" data-cap="analyse" data-state="loading">Checking</span>
+          </div>
+          <div class="cc-strategy-info">
+            <p class="cc-strategy-desc" id="cc-strategy-desc">Loading the strategy catalogue.</p>
+            <p class="cc-tf" id="cc-strategy-tf" hidden><span class="cc-tf-chip"><b>H1</b> market context</span><span class="cc-tf-chip"><b>M5</b> setup &amp; confirmation</span></p>
+          </div>
+          <div class="lab-field lab-field-check">
+            <span class="lab-label">Monitor</span>
+            <label class="lab-check cc-toggle"><input type="checkbox" id="lab-watchdog" disabled aria-describedby="lab-watchdog-state"> <span class="cc-toggle-label">WATCHDOG</span></label>
+            <span id="lab-watchdog-state" class="lab-state" data-cap="watchdog" data-state="loading">Checking</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="lab-layout">
+        <div class="lab-main stack">
+          <section class="panel lab-decision lab-primary" aria-label="Strategy decision" aria-live="polite">
+            <div class="panel-head"><h2 class="panel-title">Decision <span class="lab-state" data-cap="decision" data-state="loading">Checking</span></h2><span class="cc-decision-meta" id="cc-decision-meta"></span></div>
+            <div class="panel-body" id="lab-decision-body" aria-live="polite">
+              <div class="lab-empty" id="lab-decision-empty">
+                <p class="lab-empty-title">No analysis yet</p>
+                <p class="note">Pick a market and a strategy, then press ANALYSE MARKET. The decision (BUY, SELL, WATCH or WAIT), its reasons and any levels come only from the selected strategy's real evaluation.</p>
+              </div>
+            </div>
+          </section>
+          <section class="panel" aria-label="Multi-timeframe context">
+            <div class="panel-head"><h2 class="panel-title">H1 context and M5 setup <span class="lab-state" data-cap="mtf" data-state="loading">Checking</span></h2></div>
+            <div class="panel-body" id="lab-mtf-body"><p class="note" id="lab-mtf-note">Run ANALYSE MARKET to see what H1 and M5 show for the selected strategy.</p></div>
+          </section>
+          <section class="panel" aria-label="Setup details">
+            <div class="panel-head"><h2 class="panel-title">Trade review <span class="lab-state" data-cap="setup" data-state="loading">Checking</span></h2></div>
+            <div class="panel-body" id="lab-setup-body"><p class="note">When the selected strategy qualifies a setup, its entry reference, stop, target and reward-to-risk appear here, ready for REVIEW TRADE. Nothing is filled in until then.</p></div>
+            <div class="panel-body cc-review" id="cc-review" hidden>
+              <div class="cc-review-actions">
+                <button type="button" class="btn btn-primary cc-btn-review" id="cc-review-btn" disabled>REVIEW TRADE</button>
+                <span class="note" id="cc-review-hint">Review sizes the trade with the Risk Engine and sends nothing.</span>
+              </div>
+              <div id="cc-review-result" aria-live="polite"></div>
+              <div class="cc-execute" id="cc-execute" hidden>
+                <button type="button" class="btn cc-btn-execute" id="cc-execute-btn">CONFIRM &amp; EXECUTE</button>
+                <button type="button" class="btn cc-btn-cancel" id="cc-cancel-btn" hidden>Cancel</button>
+                <span class="note" id="cc-execute-note"></span>
+              </div>
+            </div>
+          </section>
+          <section class="panel" aria-label="Recent activity">
+            <div class="panel-head"><h2 class="panel-title">Recent activity</h2></div>
+            <div class="panel-body"><ul class="cc-activity" id="cc-activity"><li class="note">No recorded activity yet.</li></ul></div>
+          </section>
+        </div>
+
+        <aside class="lab-rail stack" aria-label="Status and controls">
+          <section class="panel" aria-label="Connection">
+            <div class="panel-head"><h2 class="panel-title">Connection</h2></div>
+            <div class="panel-body"><p><span class="lab-state" data-cap="broker" data-state="loading">Checking</span></p><p class="note" id="lab-broker-note">Checking the broker connection.</p>
+              <dl class="cc-kv" id="cc-account-kv" hidden></dl></div>
+          </section>
+          <section class="panel" aria-label="Monitoring">
+            <div class="panel-head"><h2 class="panel-title">Watchdog <span class="lab-state" data-cap="watchdog" data-state="loading">Checking</span></h2></div>
+            <div class="panel-body">
+              <p class="cc-wd-state" id="cc-wd-state" data-wd="off">Off</p>
+              <p class="note" id="lab-watchdog-note" role="status" aria-live="polite">Watchdog is stopped. Select a market and switch it on to monitor the selected strategy.</p>
+              <p class="note" id="lab-watchdog-last">No monitoring check has run yet.</p>
+            </div>
+          </section>
+          <section class="panel" aria-label="Execution">
+            <div class="panel-head"><h2 class="panel-title">Execution <span class="lab-state" data-cap="execution" data-state="loading">Checking</span></h2></div>
+            <div class="panel-body">
+              <p class="cc-exec-state" id="cc-exec-state">Nothing under review.</p>
+              <p class="note">Orders are only ever sent after REVIEW TRADE, then CONFIRM &amp; EXECUTE, through the Risk Engine and the existing MT5 pathway. Switching strategy cancels a pending review.</p>
+            </div>
+          </section>
+          <section class="panel" aria-label="Notifications and sound">
+            <div class="panel-head"><h2 class="panel-title">Notifications and sound <span class="lab-state" data-cap="notifications" data-state="loading">Checking</span></h2></div>
+            <div class="panel-body stack">
+              <button type="button" class="btn btn-sm" id="lab-notification-permission">Enable browser alerts</button>
+              <label class="lab-check"><input type="checkbox" id="lab-notification-enabled"> Desktop alerts</label>
+              <label class="lab-check"><input type="checkbox" id="lab-sound-enabled"> Sound for alerts <span class="lab-state" data-cap="sound" data-state="loading">Checking</span></label>
+              <label class="field"><span>Alert volume</span><input class="input" id="lab-sound-volume" type="range" min="0" max="1" step="0.1" value="0.4"></label>
+              <p class="note" id="lab-alert-note" role="status" aria-live="polite">Alerts are sent only for new, deduplicated setups from the selected strategy.</p>
+            </div>
+          </section>
+        </aside>
+      </div>
+      <p class="note lab-foot" id="lab-status-line" role="status" aria-live="polite">Loading Command Centre status.</p>
+      <span id="lab-build" class="sr-only"></span>
+    </section>
+
+    <!-- ===== Account Centre ===== -->
+    <section id="view-accountcenter" class="view" data-title="Account Centre" hidden>
+      <div class="page-head">
+        <h1 class="page-title">Account Centre</h1>
+        <p class="page-sub">Live identity and account figures reported by the currently connected MT5 terminal.</p>
+      </div>
+      <section class="panel" aria-label="Verified active account">
+        <div class="panel-head">
+          <h2 class="panel-title">Active account</h2>
+          <span class="badge" id="account-centre-status" data-state="checking">Checking connection</span>
+        </div>
+        <div class="panel-body">
+          <dl class="kv kv-rows">
+            <div><dt>Broker</dt><dd id="account-centre-broker">---</dd></div>
+            <div><dt>Server</dt><dd id="account-centre-server">---</dd></div>
+            <div><dt>Environment</dt><dd id="account-centre-environment">---</dd></div>
+            <div><dt>Verified login</dt><dd id="account-centre-login">---</dd></div>
+            <div><dt>Currency</dt><dd id="account-centre-currency">---</dd></div>
+            <div><dt>Leverage</dt><dd id="account-centre-leverage">---</dd></div>
+            <div><dt>Balance</dt><dd id="account-centre-balance">---</dd></div>
+            <div><dt>Equity</dt><dd id="account-centre-equity">---</dd></div>
+            <div><dt>Free margin</dt><dd id="account-centre-free-margin">---</dd></div>
+            <div><dt>Open P/L</dt><dd id="account-centre-profit">---</dd></div>
+            <div><dt>Snapshot age</dt><dd id="account-centre-age">---</dd></div>
+          </dl>
+          <p id="account-centre-message" class="note" role="status" aria-live="polite">
+            Account information will appear when the configured MT5 bridge reports a fresh, supported account.
+          </p>
+        </div>
+      </section>
+      <div class="grid-2">
+        <section class="panel" aria-label="Supported account operations">
+          <div class="panel-head"><h2 class="panel-title">Supported operations</h2></div>
+          <div class="panel-body stack">
+            <p class="note">TradeMate reads the identity of the account already logged in to the configured MT5 terminal. The displayed login, server and environment come from the fresh broker snapshot, not a locally saved account label.</p>
+            <p class="note">This bridge supports one active terminal connection and has no account-login or account-switch command. TradeMate therefore cannot safely save or switch account profiles. Do not change the MT5 login while TradeMate commands are pending or unresolved: bridge commands are not pinned to an account login. After the terminal reconnects, this page reflects only the newly verified snapshot.</p>
+            <p class="note">Credentials are neither requested nor stored by TradeMate. Real accounts are rejected by this MT5 adapter; supported execution remains DEMO-only through the existing Risk and Execution Engines.</p>
+          </div>
+        </section>
+        <section class="panel" aria-label="Risk and automation scope">
+          <div class="panel-head"><h2 class="panel-title">Risk and automation</h2></div>
+          <div class="panel-body stack">
+            <p class="note">Risk limits are stored in TradeMate's local settings and currently apply to the connected account as a single configuration; per-account profiles and permissions are not implemented.</p>
+            <p class="note">Command Centre analysis is read-only. Manual orders use the existing server-side Risk Engine and DEMO-only Execution Engine. Autopilot (Trading controls above) only executes setups that your strategy produces and the Risk Engine approves.</p>
+            <a class="btn btn-sm" href="#settings" data-view="settings">Review risk settings</a>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ===== Trades ===== -->
+    <section id="view-trades" class="view" data-title="Trades" hidden>
+      <div class="page-head"><h1 class="page-title">Trades</h1></div>
+      {{ open_trades() }}
+    </section>
+
+    <!-- ===== Trade History ===== -->
+    <section id="view-history" class="view" data-title="Trade History" hidden>
+      <div class="page-head"><h1 class="page-title">Trade History</h1></div>
+      <div class="cards hist-stats">
+        <section class="card"><h2 class="card-label">Closed trades</h2><div class="stat-value" id="hist-count">---</div></section>
+        <section class="card"><h2 class="card-label">Net P/L</h2><div class="stat-value" id="hist-net">---</div></section>
+        <section class="card"><h2 class="card-label">Win rate</h2><div class="stat-value" id="hist-rate">---</div></section>
+        <section class="card"><h2 class="card-label">Best trade</h2><div class="stat-value" id="hist-best">---</div></section>
+      </div>
+      <section class="panel" aria-label="Closed trades">
+        <div class="panel-head">
+          <h2 class="panel-title">Closed Trades</h2>
+          <div class="hist-controls">
+            <div class="segmented" role="group" aria-label="Period">
+              <button type="button" data-hdays="7" aria-pressed="false">7D</button>
+              <button type="button" data-hdays="30" aria-pressed="true">30D</button>
+              <button type="button" data-hdays="90" aria-pressed="false">90D</button>
+              <button type="button" data-hdays="365" aria-pressed="false">1Y</button>
+            </div>
+            <button type="button" class="btn btn-sm" id="history-refresh">Refresh</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="data history">
+            <thead><tr>
+              <th scope="col">Closed</th><th scope="col">Symbol</th><th scope="col">Type</th>
+              <th scope="col" class="num">Volume</th><th scope="col" class="num">Entry</th><th scope="col" class="num">Exit</th>
+              <th scope="col" class="num">SL</th><th scope="col" class="num">TP</th><th scope="col" class="num">P/L</th>
+              <th scope="col">Result</th>
+            </tr></thead>
+            <tbody id="history-body"><tr class="empty-row"><td colspan="10">Waiting for MT5...</td></tr></tbody>
+          </table>
+        </div>
+        <p class="note panel-note" id="history-note" role="status"></p>
+        <p class="note panel-note" id="history-hidden" hidden>
+          <span id="history-hidden-text"></span>
+          <button type="button" class="btn btn-sm" id="history-showall">Show all MT5 history</button>
+        </p>
+      </section>
+
+      <section class="panel" aria-label="TradeMate activity">
+        <div class="panel-head">
+          <h2 class="panel-title">TradeMate Activity <span class="panel-sub">local record of the orders TradeMate sent</span></h2>
+          <button type="button" class="btn btn-sm btn-danger" id="clear-history-btn">Delete Trading History</button>
+        </div>
+        <div class="table-scroll">
+          <table class="data history activity">
+            <thead><tr>
+              <th scope="col">Time</th><th scope="col">Action</th><th scope="col">Symbol</th><th scope="col">Type</th>
+              <th scope="col" class="num">Volume</th><th scope="col" class="num">Ticket</th><th scope="col">State</th><th scope="col">Detail</th>
+            </tr></thead>
+            <tbody id="activity-body"><tr class="empty-row"><td colspan="8">Loading...</td></tr></tbody>
+          </table>
+        </div>
+        <p class="note panel-note">Stored on this computer by TradeMate, separate from your MT5/broker account history.</p>
+      </section>
+    </section>
+
+    <!-- ===== Journal ===== -->
+    <section id="view-journal" class="view" data-title="Journal" hidden>
+      <div class="page-head"><h1 class="page-title">Journal</h1></div>
+      <section class="panel" id="jr-panel">
+        <div class="panel-head"><h2 class="panel-title">Trading Journal <span class="panel-sub">Your personal notepad. Nothing here trades or changes a strategy.</span></h2></div>
+        <div class="panel-body stack">
+          <div class="form-grid" id="jr-form" role="group" aria-label="Journal entry">
+            <label class="field"><span>Date</span><input class="input" id="jr-date" type="date"></label>
+            <label class="field"><span>Time</span><input class="input" id="jr-time" type="time"></label>
+            <label class="field"><span>Instrument</span><input class="input" id="jr-instrument" type="text" maxlength="40" spellcheck="false"></label>
+            <label class="field"><span>Strategy</span><input class="input" id="jr-strategy" type="text" maxlength="60"></label>
+            <label class="field"><span>Trade result</span><select class="input" id="jr-result"><option value="">(not set)</option><option value="win">Win</option><option value="loss">Loss</option><option value="breakeven">Break-even</option><option value="open">Still open</option></select></label>
+            <label class="field"><span>Profit or loss</span><input class="input" id="jr-pl" type="number" inputmode="decimal" step="any" placeholder="e.g. 12.50 or -8"></label>
+            <label class="field"><span>Emotional state</span><select class="input" id="jr-emotion"><option value="">(not set)</option></select></label>
+          </div>
+          <label class="field"><span>Personal observations and notes</span><textarea class="input" id="jr-notes" rows="5" maxlength="5000" placeholder="What did you see, feel, do, and learn?"></textarea></label>
+          <div class="side-buttons">
+            <button type="button" class="btn btn-primary" id="jr-save">SAVE ENTRY</button>
+            <button type="button" class="btn" id="jr-clear">NEW ENTRY</button>
+            <button type="button" class="btn" id="jr-import">ADD CLOSED RAPID FIRE TRADES</button>
+            <span class="note" id="jr-msg" role="status" aria-live="polite"></span>
+          </div>
+          <p class="note">Adding Rapid Fire trades copies only the facts (ticket, side, prices, realised result). Emotion and notes start empty and are always yours: a later refresh never overwrites them.</p>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Entries</h2><span class="badge" id="jr-count">0</span></div>
+        <div class="table-scroll">
+          <table class="data" id="jr-table">
+            <thead><tr>
+              <th scope="col">Date</th><th scope="col">Time</th><th scope="col">Instrument</th><th scope="col">Strategy</th>
+              <th scope="col">Result</th><th scope="col">P/L</th><th scope="col">Emotion</th><th scope="col">Notes</th><th scope="col"></th>
+            </tr></thead>
+            <tbody id="jr-body"><tr class="empty-row"><td colspan="9">No journal entries yet</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===== Backtest ===== -->
+    <section id="view-backtest" class="view" data-title="Backtest" hidden>
+      <div class="page-head"><h1 class="page-title">Backtest</h1></div>
+      <section class="panel">
+        <div class="panel-head"><h2 class="panel-title">Backtest</h2><span class="badge">Not implemented</span></div>
+        <div class="panel-body stack">
+          <div class="form-grid">
+            <label class="field"><span>Strategy</span>
+              <select class="select" disabled><option>[ Select Strategy ]</option></select></label>
+            <label class="field"><span>Symbol</span>
+              <select class="select" disabled><option>[ Select Symbol ]</option></select></label>
+            <label class="field"><span>Timeframe</span>
+              <select class="select" disabled><option>[ Select Timeframe ]</option></select></label>
+          </div>
+          <div><button type="button" class="btn btn-primary" data-notice="Backtesting is not implemented yet. No backtest was run.">START BACKTEST</button></div>
+          <p class="note">Backtesting is not implemented yet. The button does not run anything.</p>
+        </div>
+      </section>
+    </section>
+
+    <!-- ===== Settings ===== -->
+    <section id="view-settings" class="view" data-title="Settings" hidden>
+      <div class="page-head"><h1 class="page-title">Settings</h1></div>
+      <p class="notice">Trading, Chart settings and Connection below are placeholders (nothing is saved). Theme and Candlestick Appearance are real: it is saved on this computer and applied to the chart immediately.</p>
+      <div class="grid-2">
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">Trading</h2></div>
+          <div class="panel-body stack">
+            <label class="field"><span>Default lot size</span><input class="input" type="text" placeholder="---" disabled></label>
+            <label class="field"><span>Default stop loss</span><input class="input" type="text" placeholder="---" disabled></label>
+            <label class="field"><span>Default take profit</span><input class="input" type="text" placeholder="---" disabled></label>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">Interface</h2></div>
+          <div class="panel-body stack">
+            <div class="field">
+              <label for="display-name-input">Preferred display name</label>
+              <input class="input" id="display-name-input" type="text" maxlength="32" autocomplete="nickname"
+                     placeholder="For example, Alex" aria-describedby="display-name-help display-name-status">
+              <span class="note" id="display-name-help">Used in your Command Centre greeting. Saved in this browser only; leave blank to use a generic greeting.</span>
+              <div class="side-buttons">
+                <button type="button" class="btn btn-primary" id="display-name-save">Save name</button>
+                <button type="button" class="btn" id="display-name-clear">Clear name</button>
+              </div>
+              <p class="note" id="display-name-status" role="status" aria-live="polite"></p>
+            </div>
+            <label class="field"><span>Theme (whole application)</span><select class="select" id="theme-select"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+            <label class="field"><span>Chart theme (chart only)</span><select class="select" id="cs-chart-theme" disabled><option value="auto">Same as the application</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
+            <label class="field"><span>Chart settings</span><select class="select" disabled><option>Not configured</option></select></label>
+          </div>
+        </section>
+        <section class="panel" id="candle-settings">
+          <div class="panel-head"><h2 class="panel-title">Candlestick Appearance</h2></div>
+          <div class="panel-body stack">
+            <p class="cs-current">Preset: <strong id="cs-preset-name">Red and Black</strong></p>
+            <label class="field"><span>Colour preset</span><select class="select" id="cs-preset" aria-label="Candle colour preset"></select></label>
+            <div class="cs-swatches" id="cs-swatches" role="group" aria-label="Predefined colour combinations"></div>
+            <div class="cs-colors">
+              <div class="field"><span>Bullish candle (close above open)</span>
+                <div class="cs-color-row">
+                  <input type="color" id="cs-bull-picker" class="cs-picker" aria-label="Bullish candle colour picker" value="#e53935">
+                  <input type="text" id="cs-bull-hex" class="input cs-hex" aria-label="Bullish candle colour, hexadecimal" maxlength="7" spellcheck="false" autocomplete="off" value="#E53935">
+                  <i id="cs-bull-chip" class="cs-chip" aria-hidden="true"></i>
+                </div></div>
+              <div class="field"><span>Bearish candle (close below open)</span>
+                <div class="cs-color-row">
+                  <input type="color" id="cs-bear-picker" class="cs-picker" aria-label="Bearish candle colour picker" value="#000000">
+                  <input type="text" id="cs-bear-hex" class="input cs-hex" aria-label="Bearish candle colour, hexadecimal" maxlength="7" spellcheck="false" autocomplete="off" value="#000000">
+                  <i id="cs-bear-chip" class="cs-chip" aria-hidden="true"></i>
+                </div></div>
+            </div>
+            <div class="cs-preview" id="cs-preview" aria-hidden="true">
+              <span class="cs-candle"><i class="cs-wick"></i><i class="cs-body" id="cs-prev-bull"></i></span>
+              <span class="cs-candle"><i class="cs-wick"></i><i class="cs-body" id="cs-prev-bear"></i></span>
+            </div>
+            <p class="note">Choose from the existing palettes or the three added non-green presets, which adapt to the active chart theme. Custom colours stay as chosen. A doji uses a neutral colour; candle colours never change price data.</p>
+            <p class="note cs-warning" id="cs-warning" role="status" hidden></p>
+            <div class="cs-overlay-all" role="group" aria-label="All analysis overlays">
+              <span class="note">Analysis overlays on the chart:</span>
+              <button type="button" class="btn btn-sm" id="cs-overlays-show">Show all</button>
+              <button type="button" class="btn btn-sm" id="cs-overlays-hide">Hide all</button>
+            </div>
+            <p class="note">Each overlay below is independent (any combination, including none). Hiding one only stops it being drawn: the analysis engines and the Analysis page are unaffected. The same switches are the buttons in the chart toolbar.</p>
+            <label class="cs-check"><input type="checkbox" id="cs-structure"> <span>Show market structure on the chart (HH, HL, LH, LL, BOS, CHoCH). Analysis only, not orders.</span></label>
+            <label class="cs-check"><input type="checkbox" id="cs-liquidity"> <span>Show liquidity pools and sweeps on the chart. Potential liquidity areas inferred from price structure, not a view of real orders. Analysis only.</span></label>
+            <div class="cs-liq-opts">
+              <label class="field"><span>Equal highs/lows tolerance (ticks)</span><input class="input" type="number" min="0" max="500" step="1" id="cs-liq-ticks" inputmode="numeric"></label>
+              <label class="field"><span>A sweep needs</span><select class="select" id="cs-liq-mode"><option value="wick">price to trade through the level (wick)</option><option value="close">a candle to close beyond the level</option></select></label>
+              <label class="field"><span>Pools shown per side</span><input class="input" type="number" min="1" max="50" step="1" id="cs-liq-max" inputmode="numeric"></label>
+            </div>
+            <label class="cs-check"><input type="checkbox" id="cs-ob"> <span>Show order blocks on the chart: the last opposite-coloured candle behind a swing, kept only as a candidate until the structure engine reports a break of the swing the leg started from (teal-green = bullish, orange = bearish; solid = confirmed, dashed = candidate or still forming). A candle zone picked by price structure alone: TradeMate has no volume or order-flow data, so it is not evidence of institutional activity, a prediction or a trade signal. Analysis only.</span></label>
+            <label class="cs-check"><input type="checkbox" id="cs-fvg"> <span>Show fair value gaps on the chart: a price range left between candle 1 and candle 3 of three consecutive candles (blue = bullish, purple = bearish; dashed = the newest candle is still forming). An observation about those candles, not a prediction or a trade signal. Analysis only.</span></label>
+            <p class="note" id="cs-status" role="status"></p>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-trade-settings" aria-label="Command Centre settings and calculator">
+          <div class="panel-head"><h2 class="panel-title">Command Centre settings &amp; calculator</h2></div>
+          <div class="panel-body stack">
+            <p class="note">These values are saved by TradeMate itself and survive navigation and restarts. Defaults (Vol_20, 0.02 lots, target 25, stop 100) apply only to what you have not saved. Distances are in the instrument&rsquo;s pip/point unit.</p>
+            <label class="field"><span>Applies to</span>
+              <select class="select" id="ts-scope"><option value="global">Everything (global)</option><option value="instrument">This instrument only</option><option value="strategy">This strategy only</option><option value="strategy_instrument">This strategy on this instrument</option></select></label>
+            <p class="note" id="ts-target" role="status"></p>
+            <label class="field"><span>Main instrument (global)</span><input class="input" type="text" id="ts-main" autocomplete="off" aria-label="Main instrument"></label>
+            <label class="field"><span>Lot size</span><input class="input" type="text" inputmode="decimal" id="ts-lot" aria-label="Lot size"></label>
+            <label class="field"><span>Target distance</span><input class="input" type="text" inputmode="decimal" id="ts-target-dist" aria-label="Target distance"></label>
+            <label class="field"><span>Protective stop distance</span><input class="input" type="text" inputmode="decimal" id="ts-stop-dist" aria-label="Protective stop distance"></label>
+            <div class="ts-group" id="ts-rr-group" hidden>
+              <label class="field"><span>Market Structure risk-to-reward (target = ratio x the final stop distance)</span>
+                <select class="select" id="ts-rr" aria-label="Market Structure risk-to-reward ratio"><option value="off">Fixed target distance (default)</option><option value="1">1:1</option><option value="2">1:2</option><option value="3">1:3</option><option value="4">1:4</option><option value="5">1:5</option><option value="custom">Custom ratio</option></select></label>
+              <label class="field" id="ts-rr-custom-field" hidden><span>Custom ratio (reward per 1 of risk, 0.1 to 100)</span><input class="input" type="text" inputmode="decimal" id="ts-rr-custom" aria-label="Custom risk-to-reward ratio"></label>
+              <p class="note tc-small" id="ts-rr-note">The stop and the structure detection are unchanged. With a ratio chosen, the target distance above is not used by Market Structure.</p>
+            </div>
+            <div class="ts-group" id="ts-choch-group" hidden>
+              <div class="ts-presets" role="group" aria-label="CHoCH target distance presets"><span class="tc-small">CHoCH target (pips / points):</span>
+                <button type="button" class="btn" data-ts-preset="50">50</button><button type="button" class="btn" data-ts-preset="100">100</button><button type="button" class="btn" data-ts-preset="150">150</button><button type="button" class="btn" data-ts-preset="200">200</button></div>
+              <p class="note tc-small" id="ts-choch-note">CHoCH takes its target from the Target distance above, measured from the actual entry.</p>
+            </div>
+            <div class="row-actions"><button type="button" class="btn btn-primary" id="ts-save">Save</button><button type="button" class="btn" id="ts-reset">Forget saved values for this scope</button></div>
+            <p class="note" id="ts-msg" role="status" aria-live="polite"></p>
+            <ul class="tc-small" id="ts-sources"></ul>
+            <h3 class="sub-title">What these distances are worth</h3>
+            <label class="field"><span>Most I am willing to risk (account currency): shows the lot size allowed for this stop</span><input class="input" type="text" inputmode="decimal" id="ts-maxrisk" aria-label="Maximum risk amount"></label>
+            <dl class="kv kv-rows" id="ts-calc" aria-live="polite">
+              <div><dt>Gain at target</dt><dd id="calc-gain">---</dd></div>
+              <div><dt>Loss at protective stop</dt><dd id="calc-loss">---</dd></div>
+              <div><dt>Risk (balance / equity)</dt><dd id="calc-risk">---</dd></div>
+              <div><dt>Reward-to-risk</dt><dd id="calc-rr">---</dd></div>
+              <div><dt>Allowed lot size</dt><dd id="calc-lot">---</dd></div>
+            </dl>
+            <p class="note" id="calc-note" role="status"></p>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-safety" aria-label="Execution and safety">
+          <div class="panel-head"><h2 class="panel-title">Execution &amp; safety</h2><span class="lab-state" id="safety-lock-chip" data-state="loading">Checking</span></div>
+          <div class="panel-body stack">
+            <label class="cs-check"><input type="checkbox" id="ex-multi"> <span><strong>Allow multiple trades per candle.</strong> OFF: at most one entry per candle. ON: at most two distinct entries per candle (per strategy, instrument and timeframe). A repeated or double-clicked request is never a second entry.</span></label>
+            <p class="note" id="ex-multi-note"></p>
+            <label class="cs-check"><input type="checkbox" id="ex-adjust"> <span><strong>Automatic lot-size reduction.</strong> If the broker answers &ldquo;not enough money&rdquo;, TradeMate re-reads your account, calculates a smaller lot that still passes every Risk Engine check, and retries a limited number of times. It never increases risk and never re-sends the same rejected order.</span></label>
+            <label class="field"><span>Most reduced retries per setup (1 to 3)</span><input class="input" type="number" min="1" max="3" step="1" id="ex-attempts"></label>
+            <h3 class="sub-title">Consecutive-loss protection</h3>
+            <label class="cs-check"><input type="checkbox" id="cl-enabled"> <span>Block new entries after this many completed losing trades in a row</span></label>
+            <label class="field"><span>Maximum consecutive losses (for example 2, 3, 5 or 10)</span><input class="input" type="number" min="1" max="1000" step="1" id="cl-threshold"></label>
+            <p class="note" id="cl-status" role="status" aria-live="polite"></p>
+            <div class="row-actions"><button type="button" class="btn" id="cl-reset">Reset the counter&hellip;</button></div>
+            <h3 class="sub-title">Emergency stop</h3>
+            <label class="cs-check"><input type="checkbox" id="ex-close"> <span>Emergency stop also closes every open position. OFF (default): it only blocks new orders and leaves open positions with their stop-loss and take-profit.</span></label>
+            <p class="note" id="em-status" role="status" aria-live="polite"></p>
+            <div class="row-actions"><button type="button" class="btn" id="em-unlock" hidden>Lift the emergency lock&hellip;</button></div>
+            <p class="note" id="safety-msg" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-sound" aria-label="Notification sound and history">
+          <div class="panel-head"><h2 class="panel-title">Notification chime</h2></div>
+          <div class="panel-body stack">
+            <label class="cs-check"><input type="checkbox" id="snd-enabled"> <span>Play a chime when a new notification arrives (new trades closed, locks, emergency stop). Old notifications never replay it.</span></label>
+            <div class="row-actions"><button type="button" class="btn" id="snd-test">Test the sound</button></div>
+            <p class="note" id="snd-msg" role="status" aria-live="polite">Browsers only allow sound after you have clicked or typed on the page once. If the test is silent, press the button again.</p>
+            <h3 class="sub-title">Recent notifications</h3>
+            <ul class="tc-small" id="notif-list"><li>None yet.</li></ul>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-hardreset" aria-label="Hard reset">
+          <div class="panel-head"><h2 class="panel-title">Hard reset</h2></div>
+          <div class="panel-body stack">
+            <p class="note">Puts your <strong>settings</strong> back to the defaults. It is not a database wipe: trade history, risk records, notifications, the duplicate-order ledger, the MT5 bridge and all strategy code are never touched. Every reset file is copied to a backup first, so you can restore it.</p>
+            <div id="hr-plan" class="tc-small"></div>
+            <div class="row-actions"><button type="button" class="btn btn-danger" id="hr-open">Hard reset&hellip;</button></div>
+            <div id="hr-confirm" hidden class="stack">
+              <label class="field"><span>Type HARD RESET to confirm</span><input class="input" type="text" id="hr-phrase" autocomplete="off"></label>
+              <div class="row-actions"><button type="button" class="btn btn-danger" id="hr-go">Reset settings now</button><button type="button" class="btn" id="hr-cancel">Cancel</button></div>
+            </div>
+            <p class="note" id="hr-msg" role="status" aria-live="polite"></p>
+            <h3 class="sub-title">Backups you can restore</h3>
+            <ul class="tc-small" id="hr-backups"><li>None.</li></ul>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">Connection</h2></div>
+          <div class="panel-body stack">
+            <h3 class="sub-title">MT5 Connection</h3>
+            <dl class="kv kv-rows">
+              <div><dt>Status</dt><dd id="settings-mt5-state">Checking</dd></div>
+            </dl>
+          </div>
+        </section>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Unknown-outcome bar: shown whenever an order was sent and its real result is not yet known -->
+  <div class="unresolved-bar" id="unresolved-bar" role="alert" hidden>
+    <div class="ub-text"><strong id="ub-title"></strong><span id="ub-msg"></span></div>
+    <div class="ub-actions">
+      <button type="button" class="btn btn-sm btn-primary" id="ub-check">Check MT5 again</button>
+      <button type="button" class="btn btn-sm" id="ub-notexec">It did not execute</button>
+      <button type="button" class="btn btn-sm" id="ub-exec">It executed</button>
+    </div>
+  </div>
+
+  <dialog id="clear-dialog" class="confirm-dialog" aria-labelledby="clear-title">
+    <h2 id="clear-title">Delete TradeMate trading history?</h2>
+    <div class="cd-block cd-does">
+      <h3>This WILL delete (TradeMate, on this computer)</h3>
+      <ul>
+        <li>TradeMate's own activity log of the orders it sent (place, modify, close).</li>
+        <li>The closed trades currently listed on this page are cleared from this view.</li>
+      </ul>
+    </div>
+    <div class="cd-block cd-not">
+      <h3>This will NOT</h3>
+      <ul>
+        <li>contact MT5 or send any command to it,</li>
+        <li>close, change or delete any open or closed trade,</li>
+        <li>erase your MT5 / broker account history. It stays in MT5, and "Show all MT5 history" brings it back here.</li>
+      </ul>
+    </div>
+    <p class="cd-warn" id="clear-warn" hidden></p>
+    <div class="cd-actions">
+      <button type="button" class="btn" id="clear-cancel">Cancel</button>
+      <button type="button" class="btn btn-sell" id="clear-confirm">Delete TradeMate history</button>
+    </div>
+  </dialog>
+<script src="{{ url_for('static', filename='js/router.js', v='vision-1') }}"></script>
+<script src="{{ url_for('static', filename='js/pl.js') }}"></script>
+<script src="{{ url_for('static', filename='js/outcome.js') }}"></script>
+<script src="{{ url_for('static', filename='js/slcalc.js') }}"></script>
+<script src="{{ url_for('static', filename='js/quotes.js') }}"></script>
+<script src="{{ url_for('static', filename='js/liquidity.js') }}"></script>
+<script src="{{ url_for('static', filename='js/fvg.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ob.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chart_style.js', v='adaptive-candles-1') }}"></script>
+<script src="{{ url_for('static', filename='js/clocks.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js', v='chart-extras-1') }}"></script>
+<script src="{{ url_for('static', filename='js/analysis.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mtf.js') }}"></script>
+<script src="{{ url_for('static', filename='js/labgreeting.js') }}"></script>
+<script src="{{ url_for('static', filename='js/strategylab.js', v='cc-redesign-1') }}"></script>
+<script src="{{ url_for('static', filename='js/commandcentre.js', v='five-strategies-2') }}"></script>
+<script src="{{ url_for('static', filename='js/candlemomentum.js', v='cm-engine-3') }}"></script>
+<script src="{{ url_for('static', filename='js/bullbear.js', v='bb-1') }}"></script>
+<script src="{{ url_for('static', filename='js/safety.js', v='safety-1') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js', v='vision-1') }}"></script>
+<script src="{{ url_for('static', filename='js/targetmonitor.js', v='vision-2') }}"></script>
+<script src="{{ url_for('static', filename='js/strategies.js', v='vision-1') }}"></script>
+<script src="{{ url_for('static', filename='js/rapidfire.js', v='vision-1') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/journal.js', v='journal-1') }}" defer></script>
+</body>
+</html>

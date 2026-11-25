@@ -1,0 +1,9 @@
+# TradeMate dependencies.
+# Flask serves the web interface. Everything else (config, logging, tests)
+# uses the Python standard library. Python 3.11 or newer is required.
+Flask>=3.0,<4.0
+# IANA timezone database for zoneinfo. Built in on Linux/macOS; Windows has none, so it is needed there (harmless elsewhere).
+tzdata>=2024.1; sys_platform == "win32"
+
+# Production WSGI server used by the Render Docker deployment.
+gunicorn>=22,<24

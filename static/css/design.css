@@ -1,0 +1,196 @@
+/* TradeMate Vision design layer. Loaded AFTER style.css. Uses only the existing theme tokens (--panel, --line, --text, --muted, --primary ...),
+   so it follows data-theme light/dark and leaves the independent chart theme alone. Adds the components of the redesigned pages and
+   tightens spacing, focus, touch targets and responsive behaviour. No page logic lives here. */
+
+/* ---- foundations ---- */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.page-head { display: flex; flex-direction: column; gap: 4px; }
+.page-head-row { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.page-title { font-size: 24px; font-weight: 650; letter-spacing: -.01em; }
+.page-sub { color: var(--muted); font-size: 13.5px; max-width: 70ch; }
+.panel, .card { box-shadow: 0 1px 0 var(--line-soft) inset; }
+.panel-head { min-height: 48px; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn, .nav-link, .tc-info, .mkt-arrow { touch-action: manipulation; }
+.btn-primary { background: var(--primary); border-color: var(--primary-line); color: var(--on-primary); }
+.btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+.is-ok { color: var(--ok); } .is-bad { color: var(--bad); } .is-warn { color: var(--warn); }
+
+/* ---- Dashboard ---- */
+.kpi-grid { align-items: start; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.kpi-hero { grid-column: span 2; background: linear-gradient(135deg, var(--primary-soft), var(--panel)); border-color: var(--primary-line); }
+.kpi-label { font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.kpi-value { font-family: var(--mono); font-size: 22px; font-weight: 650; overflow-wrap: anywhere; line-height: 1.2; }
+.kpi-hero .kpi-value { font-size: 30px; }
+.kpi-sub { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.dash-split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+
+/* ---- Strategy hub ---- */
+.strat-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.strat-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.strat-card[data-state="active"] { border-color: var(--primary-line); box-shadow: 0 0 0 1px var(--primary-line) inset; }
+.strat-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.strat-name { font-size: 15px; font-weight: 650; margin-right: auto; }
+.strat-summary { font-size: 13px; color: var(--muted); }
+.strat-about { padding: 8px 10px; border-left: 2px solid var(--primary-line); background: var(--field-bg); border-radius: 6px; }
+.strat-kv > div { padding: 7px 0; }
+.strat-kv dd { font-size: 12.5px; }
+.strat-foot { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+/* the "i" works by tap and by keyboard (a button toggling a visible note), never by hover alone */
+.tc-info { width: 26px; height: 26px; min-width: 26px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); font-weight: 700; font-style: italic; cursor: pointer; }
+.tc-info[aria-expanded="true"] { background: var(--primary-soft); color: var(--on-primary); }
+
+/* ---- Rapid Fire ---- */
+.rf-panel { border-color: var(--primary-line); }
+.rf-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.rf-stat { background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 12px 14px; min-width: 0; }
+.rf-stat-label { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.rf-stat-value { font-family: var(--mono); font-size: 18px; font-weight: 650; margin: 4px 0 2px; overflow-wrap: anywhere; }
+.rf-stat-sub { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.rf-panel .side-buttons { grid-template-columns: auto auto 1fr; align-items: center; }
+.rf-check input { width: 22px; height: 22px; accent-color: var(--primary); }
+.rf-events summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+.rf-events ol { margin: 8px 0 0; padding-left: 20px; }
+
+/* ---- History: strategy column + Anti-Twin badge ---- */
+.badge-rf, .badge-twin { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 650; letter-spacing: .04em; border: 1px solid var(--primary-line); color: var(--primary-text); white-space: nowrap; }
+.badge-twin { border-color: var(--warn-line); color: var(--warn); }
+
+/* ---- responsive ---- */
+@media (max-width: 1023px) { .dash-split { grid-template-columns: 1fr; } .kpi-hero { grid-column: span 2; } }
+@media (max-width: 767px) {
+  .page-title { font-size: 21px; }
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .kpi { padding: 12px; } .kpi-value { font-size: 18px; } .kpi-hero .kpi-value { font-size: 24px; }
+  .strat-grid { grid-template-columns: 1fr; }
+  .rf-panel .side-buttons { grid-template-columns: 1fr 1fr; } .rf-panel .side-buttons .note { grid-column: 1 / -1; }
+  .btn, .input, .select { min-height: 44px; }
+}
+@media (max-width: 420px) { .kpi-grid { grid-template-columns: 1fr 1fr; } .kpi-hero { grid-column: 1 / -1; } .panel-body { padding: 12px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+/* ======================= Vision 2: Target Monitor (instrument cluster) ======================= */
+:root {
+  --gauge-a: #2F7BFF; --gauge-b: #8B5CF6; --gauge-track: rgba(255,255,255,.09); --gauge-tick: rgba(255,255,255,.34);
+  --gauge-needle: #E9EEFB; --burgundy: #B4233F;
+}
+html[data-theme="light"] { --gauge-a: #1F63E0; --gauge-b: #6D3FD4; --gauge-track: rgba(15,30,70,.10); --gauge-tick: rgba(15,30,70,.38); --gauge-needle: #14203F; --burgundy: #A11D38; }
+.tm-body { display: grid; grid-template-columns: minmax(280px, 460px) minmax(0, 1fr); gap: 28px; align-items: center; }
+.tm-gauge { position: relative; width: 100%; max-width: 460px; margin-inline: auto; }
+.tm-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.tm-track, .tm-prog { fill: none; stroke-width: 16; stroke-linecap: round; }
+.tm-track { stroke: var(--gauge-track); }
+.tm-prog { transition: stroke-dasharray .7s cubic-bezier(.2,.7,.2,1); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--gauge-a) 45%, transparent)); }
+.tm-stop-a { stop-color: var(--gauge-a); } .tm-stop-b { stop-color: var(--gauge-b); }
+.tm-tick { stroke: var(--gauge-tick); stroke-width: 1.2; } .tm-tick-major { stroke-width: 2.2; }
+.tm-tick-label { fill: var(--muted); font: 600 10px var(--mono); stroke: none; }
+.tm-needle { transition: transform .7s cubic-bezier(.2,.7,.2,1); }
+.tm-needle-line { stroke: var(--gauge-needle); stroke-width: 2.4; stroke-linecap: round; opacity: .9; }
+.tm-needle-tip { fill: var(--gauge-b); stroke: var(--gauge-needle); stroke-width: 1.5; }
+.tm-hub { fill: var(--panel); stroke: var(--gauge-needle); stroke-width: 2; }
+.tm-readout { text-align: center; padding-top: 8px; }
+.tm-label { font-size: 11px; font-weight: 650; letter-spacing: .16em; color: var(--muted); }
+.tm-value { font: 700 clamp(26px, 6.4vw, 38px)/1.1 var(--mono); letter-spacing: -.02em; overflow-wrap: anywhere; }
+.tm-target { font-size: 12px; font-weight: 600; letter-spacing: .1em; color: var(--muted); margin-top: 2px; }
+.tm-headline { font-size: clamp(20px, 4vw, 28px); font-weight: 700; letter-spacing: .02em; }
+.tm-remaining { font: 600 14px var(--mono); letter-spacing: .06em; color: var(--muted); margin: 4px 0 8px; min-height: 1.2em; }
+.tm-side { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; }
+.tm[data-negative="true"] .tm-value { color: var(--pl-neg); }
+.tm[data-negative="true"] .tm-headline::before { content: "\25BC  "; color: var(--pl-neg); }          /* a symbol as well as a colour */
+.tm[data-reached="true"] .tm-headline::before { content: "\2714  "; color: var(--ok); }
+.tm[data-reached="true"] .tm-prog { stroke: var(--ok); }
+.tm[data-kind="no-target"] .tm-prog, .tm[data-kind="zero-target"] .tm-prog, .tm[data-kind="loading"] .tm-prog, .tm[data-kind="unavailable"] .tm-prog { opacity: 0; }
+.tm[data-kind="no-target"] .tm-needle, .tm[data-kind="zero-target"] .tm-needle, .tm[data-kind="loading"] .tm-needle, .tm[data-kind="unavailable"] .tm-needle { opacity: .35; }
+.tm[data-stale="true"] .tm-gauge { opacity: .55; }
+.tm[data-kind="loading"] .tm-value { opacity: .5; }
+
+@media (max-width: 767px) {
+  .tm-body { grid-template-columns: 1fr; gap: 12px; }
+  .tm-side { align-items: center; text-align: center; }
+  .tm-tick-label { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) { .tm-prog, .tm-needle { transition: none; } }
+
+/* ---- Performance overview (real closed-trade history) ---- */
+.perf-grid { display: grid; gap: 18px; grid-template-columns: 1.6fr 1fr 1fr; }
+.perf-card { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.perf-bars { display: flex; align-items: flex-end; gap: 3px; height: 120px; padding: 8px; background: var(--field-bg); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); }
+.perf-bar { flex: 1 1 0; min-width: 3px; border-radius: 2px 2px 0 0; }
+.perf-bar.is-win { background: var(--pl-pos); } .perf-bar.is-loss { background: var(--pl-neg); opacity: .9; } .perf-bar.is-even { background: var(--pl-zero); }
+.perf-bar.is-loss { border-top: 2px solid var(--on-primary); }            /* a loss is marked by a cap as well as by colour */
+.perf-dist { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--gauge-track); }
+.perf-seg.is-win { background: var(--pl-pos); } .perf-seg.is-loss { background: var(--pl-neg); } .perf-seg.is-even { background: var(--pl-zero); }
+.perf-recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.perf-recent li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.perf-recent li:last-child { border-bottom: 0; } .perf-recent strong { font-family: var(--mono); }
+@media (max-width: 1023px) { .perf-grid { grid-template-columns: 1fr 1fr; } .perf-grid .perf-card:first-child { grid-column: 1 / -1; } }
+@media (max-width: 639px) { .perf-grid { grid-template-columns: 1fr; } }
+
+/* ---- Autopilot controls: normal actions vs the emergency action ---- */
+.tc-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.tc-actions .btn { flex: 1 1 110px; }
+.tc-actions .tc-emergency { flex: 1 1 100%; order: 9; margin-top: 8px; height: 44px; position: relative; letter-spacing: .12em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--burgundy) 16%, transparent) !important; border: 1.5px solid var(--burgundy) !important; color: var(--bad) !important; }
+.tc-actions .tc-emergency::before { content: "\26A0"; margin-right: 10px; }                  /* a warning sign, not only a colour */
+.tc-actions .tc-emergency:hover:not(:disabled) { background: var(--burgundy) !important; color: #fff !important; }
+.tc-actions .tc-emergency::after { content: ""; position: absolute; left: 12px; right: 12px; top: -6px; border-top: 1px dashed var(--line); }
+
+/* ---- the decision words are always text (BUY / SELL / WATCH / WAIT), the colour only reinforces them ---- */
+.an-status[data-decision] .an-status-code, [data-decision] .decision-word { letter-spacing: .12em; font-weight: 750; }
+
+/* ===== Futuristic pass: dashboard hierarchy, touch targets, phone chart toolbar ===== */
+.kpi-primary { grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)); }
+.kpi-primary .kpi-hero { grid-column: auto; }
+.kpi-secondary { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.kpi-secondary .kpi { padding: 12px 14px; }
+.kpi-secondary .kpi-value { font-size: 18px; }
+#target-monitor .tm-body { padding-block: 10px; }
+.ts-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 28px; }
+.ts-grid > div { border-bottom: 1px solid var(--line-soft); min-width: 0; }
+.ts-grid dd { overflow-wrap: anywhere; }
+.ts-grid .ts-wide { grid-column: 1 / -1; border-bottom: 0; }
+@media (max-width: 1100px) { .kpi-primary { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kpi-primary .kpi-hero { grid-column: span 3; } .kpi-secondary { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) {
+  .kpi-primary, .kpi-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi-primary .kpi-hero { grid-column: 1 / -1; }
+  .ts-grid { grid-template-columns: 1fr; }
+}
+
+/* touch: every tappable control gets a hit area of at least 40px, without changing how it looks */
+@media (pointer: coarse), (max-width: 767px) {
+  .tc-info, .mkt-arrow, .tool-btn { position: relative; }
+  .tc-info::after, .mkt-arrow::after { content: ""; position: absolute; inset: -8px; }
+  .mkt-arrow { min-height: 40px; min-width: 44px; }
+  input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; accent-color: var(--primary); }
+  label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) { min-height: 40px; display: inline-flex; align-items: center; gap: 8px; }
+  .an-auto, #an-auto { width: 22px; height: 22px; }
+}
+
+/* phone chart: the timeframe row and the tool row each sit on their own line, and swipe only if they truly do not fit */
+@media (max-width: 767px) {
+  .chart-toolbar { flex-wrap: wrap; overflow: visible; row-gap: 4px; }
+  .chart-toolbar .tb-group { flex-wrap: nowrap; width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .chart-toolbar .tb-group::-webkit-scrollbar { display: none; }
+  .chart-toolbar .tb-tools { margin-left: 0; justify-content: flex-start; mask-image: linear-gradient(90deg, #000 92%, transparent); }
+  .chart-toolbar .tb-cluster { flex: 0 0 auto; }
+  .chart-toolbar .tool-btn { min-width: 40px; min-height: 40px; }
+}
+
+
+/* ============================================================================================================
+   CHART NAVIGATION CAPSULE: every chart control (instrument, timeframes, chart type, tools) lives in ONE rounded, single-row capsule.
+   It never wraps and never splits into two rows: when the controls are wider than the screen the capsule scrolls sideways INSIDE itself.
+   The moving-average pop-over is a sibling of the capsule (not inside it) so the capsule's overflow cannot clip it.
+   ============================================================================================================ */
+.chart-toolbar { display: block; position: relative; padding: 8px 10px; overflow: visible; min-width: 0; max-width: 100%; }
+.chart-toolbar > .tb-capsule { display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 10px; min-width: 0; max-width: 100%; box-sizing: border-box;
+  overflow-x: auto; overflow-y: hidden; border-radius: 999px; padding: 4px 8px; border: 1px solid var(--line-soft); background: rgba(255,255,255,.03);
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x; scroll-behavior: smooth; }
+.chart-toolbar > .tb-capsule::-webkit-scrollbar { display: none; }
+.chart-toolbar > .tb-capsule > .tb-group { display: flex; flex: 0 0 auto; flex-wrap: nowrap; width: auto; row-gap: 0; overflow: visible; mask-image: none; padding: 0; margin: 0; }
+.chart-toolbar > .tb-capsule > .tb-tools { margin-left: auto; justify-content: flex-start; }
+.chart-toolbar > .tb-capsule .tb-cluster, .chart-toolbar > .tb-capsule .chart-symbol, .chart-toolbar > .tb-capsule .segmented, .chart-toolbar > .tb-capsule .tool-btn { flex: 0 0 auto; white-space: nowrap; }
+[data-chart-theme="light"] .chart-toolbar > .tb-capsule { background: rgba(15,27,51,.04); border-color: rgba(15,27,51,.1); }
+.chart-panel { min-width: 0; max-width: 100%; }

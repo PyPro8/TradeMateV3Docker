@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: trademate-vision
+    runtime: docker
+    plan: standard
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: false
+    healthCheckPath: /healthz
+    disk:
+      name: trademate-state
+      mountPath: /var/data
+      sizeGB: 10
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: TRADEMATE_MODE
+        value: demo
+      - key: TRADEMATE_HOST
+        value: 0.0.0.0
+      - key: TRADEMATE_EXPECTED_SERVER
+        value: Headway-Demo
+      - key: MT5_SERVER
+        value: Headway-Demo
+      - key: TRADEMATE_DATA_DIR
+        value: /var/data/trademate
+      - key: TRADEMATE_LOG_DIR
+        value: /var/data/logs
+      - key: WINEPREFIX
+        value: /var/data/wineprefix
+      - key: MT5_INSTALL_DIR
+        value: "/var/data/wineprefix/drive_c/MT5"
+      - key: DISPLAY
+        value: ":99"
+      - key: TM_CHART_SYMBOL
+        value: EURUSD
+      - key: TM_CHART_PERIOD
+        value: M5
+      - key: MT5_WAIT
+        value: "120"
+      - key: MT5_INSTALL_TIMEOUT
+        value: "900"
+      - key: TRADEMATE_WEB_USER
+        sync: false
+      - key: TRADEMATE_WEB_PASSWORD
+        sync: false
+      - key: MT5_LOGIN
+        sync: false
+      - key: MT5_PASSWORD
+        sync: false

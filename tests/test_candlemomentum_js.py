@@ -1,0 +1,20 @@
+"""Runs the Node checks for static/js/candlemomentum.js (the Candle Momentum panel's pure logic) as part of the normal test run."""
+
+import shutil
+import subprocess
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+@unittest.skipUnless(shutil.which("node"), "Node.js is not installed; run `node tests/candlemomentum_test.js` where it is.")
+class CandleMomentumPanelLogicTest(unittest.TestCase):
+    def test_candlemomentum_js_checks_pass(self):
+        run = subprocess.run(["node", str(ROOT / "tests" / "candlemomentum_test.js")], capture_output=True, text=True, timeout=30)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("all checks passed", run.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

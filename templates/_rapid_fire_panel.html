@@ -1,0 +1,66 @@
+<section class="panel rf-panel" id="rf-panel" aria-label="Rapid Fire">
+  <div class="panel-head">
+    <h2 class="panel-title">RAPID FIRE <span class="panel-sub">Beauty in simplicity. M1 only, software-managed exits.</span></h2>
+    <span class="tc-chip" id="rf-state" data-tone="idle">Loading</span>
+  </div>
+  <div class="panel-body stack">
+    <p class="note" id="rf-reason" role="status" aria-live="polite"></p>
+    <div class="note is-warn" id="rf-warnings" role="alert" hidden></div>
+
+    <div class="rf-grid" aria-label="Live status">
+      <div class="rf-stat"><div class="rf-stat-label">Instrument</div><div class="rf-stat-value" id="rf-instrument">---</div><div class="rf-stat-sub" id="rf-quote">---</div></div>
+      <div class="rf-stat"><div class="rf-stat-label">Entries this M1 candle</div><div class="rf-stat-value" id="rf-shots">---</div><div class="rf-stat-sub" id="rf-ref">---</div></div>
+      <div class="rf-stat"><div class="rf-stat-label">Strategy net P/L</div><div class="rf-stat-value" id="rf-net">---</div><div class="rf-stat-sub" id="rf-net-sub">broker-confirmed only</div></div>
+      <div class="rf-stat"><div class="rf-stat-label">Anti-Twin</div><div class="rf-stat-value" id="rf-at">---</div><div class="rf-stat-sub" id="rf-at-sub">---</div></div>
+    </div>
+
+    <div class="side-buttons">
+      <button type="button" class="btn btn-primary" id="rf-start">START</button>
+      <button type="button" class="btn" id="rf-stop">STOP</button>
+      <span class="note" id="rf-msg" role="status" aria-live="polite"></span>
+    </div>
+
+    <h3 class="sub-title">Settings</h3>
+    <div class="stack" id="rf-form" role="group" aria-label="Rapid Fire settings">
+      <div class="form-grid">
+        <label class="field"><span>Instrument</span><input class="input" id="rf-symbol" name="symbol" type="text" maxlength="40" spellcheck="false"></label>
+        <label class="field"><span>Timeframe</span><input class="input" id="rf-timeframe" type="text" value="M1" disabled aria-label="Timeframe (fixed to M1)"></label>
+        <label class="field"><span>Entry trigger (points)</span><input class="input" id="rf-trigger" name="trigger_points" type="number" inputmode="decimal" step="any" min="0"></label>
+        <label class="field"><span>Profit per fire (account currency, net)</span><input class="input" id="rf-profit-fire" name="profit_per_fire" type="number" inputmode="decimal" step="any" min="0" placeholder="e.g. 50"></label>
+        <label class="field"><span>Fixed take profit (points), used only when profit per fire is empty</span><input class="input" id="rf-target" name="target_points" type="number" inputmode="decimal" step="any" min="0"></label>
+        <label class="field"><span>Max entries per M1 candle</span><input class="input" id="rf-max" name="max_entries_per_candle" type="number" inputmode="numeric" step="1" min="1" max="5"></label>
+        <label class="field"><span>Lot</span><input class="input" id="rf-lot" name="lot" type="number" inputmode="decimal" step="any" min="0" placeholder="required"></label>
+        <label class="field"><span>Emergency exit (points adverse)</span><input class="input" id="rf-emergency" name="emergency_points" type="number" inputmode="decimal" step="any" min="0" placeholder="required"></label>
+        <label class="field"><span>Commission per lot, round turn (optional)</span><input class="input" id="rf-comm-lot" name="commission_per_lot" type="number" inputmode="decimal" step="any" min="0" placeholder="0"></label>
+        <label class="field"><span>Max spread (points, optional)</span><input class="input" id="rf-spread" name="max_spread_points" type="number" inputmode="decimal" step="any" min="0" placeholder="none"></label>
+      </div>
+      <div class="note" id="rf-plan" role="status" aria-live="polite">Take-profit plan: waiting for the instrument data.</div>
+      <p class="note">Enter the money you want to make per fire; TradeMate reads the instrument's tick size and tick value from MT5, uses your lot and works out the take-profit distance and price itself. The spread is already inside that distance (a buy fills at the ask and exits on the bid), the result is rounded up to a whole tick, and commission is only included if you enter it. If the broker data is missing or invalid nothing is guessed and no order is sent. The exit is a software-managed level (no broker-side TP).</p>
+      <p class="note">The emergency exit is how Rapid Fire fits the Risk Engine without a broker stop-loss: it is a software level, so it only works while TradeMate, the bridge and the MT5 terminal are running. Required before Start.</p>
+
+      <h3 class="sub-title">Anti-Twin</h3>
+      <div class="form-grid">
+        <label class="field rf-check"><span>Anti-Twin ON</span><input id="rf-at-enabled" name="anti_twin_enabled" type="checkbox"></label>
+      </div>
+      <p class="note">ON or OFF, nothing else to set. When a position has moved away from its entry price (in profit or against you) and price then returns to, or crosses, that entry price, it is closed, the closure is confirmed, and an equal-volume opposite position opens. Each new position is watched from its own entry price, so BUY, SELL, BUY, SELL can continue (up to a fixed safety ceiling). A BUY is judged on the bid and a SELL on the ask, so the spread alone never counts as a crossing. The emergency exit and the Emergency Stop always win. This switch is independent of Candle Momentum and Bull/Bear.</p>
+      <div class="side-buttons"><button type="button" class="btn" id="rf-save">SAVE SETTINGS</button><span class="note" id="rf-save-msg" role="status" aria-live="polite"></span></div>
+    </div>
+
+    <h3 class="sub-title">Lot helper</h3>
+    <div class="an-controls">
+      <label class="field"><span>Wanted profit per shot (account currency)</span><input class="input" id="rf-profit" type="number" inputmode="decimal" step="any" min="0" placeholder="e.g. 50"></label>
+      <button type="button" class="btn" id="rf-suggest">SUGGEST LOT</button>
+    </div>
+    <p class="note" id="rf-suggest-out" role="status" aria-live="polite">Uses the broker's tick value for the instrument. It never assumes what a point is worth and does not convert currencies.</p>
+    <dl class="kv kv-rows" id="rf-metrics" aria-label="Instrument metadata"></dl>
+
+    <h3 class="sub-title">Open Rapid Fire positions</h3>
+    <div class="table-scroll"><table class="data data-narrow" aria-label="Open Rapid Fire positions">
+      <thead><tr><th>Role</th><th>Side</th><th class="num">Lot</th><th class="num">Entry</th><th class="num">Target</th><th class="num">Emergency</th><th>Status</th><th></th></tr></thead>
+      <tbody id="rf-pos"><tr class="empty-row"><td colspan="8">None</td></tr></tbody></table></div>
+
+    <h3 class="sub-title">Last execution</h3>
+    <p class="note" id="rf-last">---</p>
+    <details class="rf-events"><summary>Recent engine events</summary><ol id="rf-events" class="tc-small"></ol></details>
+  </div>
+</section>
